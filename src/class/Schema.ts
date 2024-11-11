@@ -1,7 +1,5 @@
 class Schema {
-    constructor() {
-        
-    }
+  constructor() {}
 }
 
-export default  Schema;
+export default Schema;
