@@ -2,6 +2,9 @@ import { TSENodeAttributes } from '@src/types';
 
 export type TSENodeContent = TSENode | string;
 
+/**
+ * @description TSENode 클래스는 각 Node의 속성, 타입, DOM 표현을 정의합니
+ */
 class TSENode {
   type: string;
   attrs: TSENodeAttributes;
@@ -17,34 +20,32 @@ class TSENode {
     this.content = content;
   }
 
+  static isTSENode(node: any): node is TSENode {
+    return (
+      node instanceof TSENode &&
+      typeof node.type === 'string' &&
+      Array.isArray(node.content)
+    );
+  }
+
   // DOM 표현 정의 (예: 노드 타입에 따라 <p>, <h1> 등으로 표현)
   toDOM(): (string | TSENodeAttributes | (string | TSENodeAttributes)[])[] {
-    if (this.type === 'paragraph') {
-      return [
-        'p',
-        this.attrs,
-        ...this.content.map((child) =>
-          child instanceof TSENode ? child.toDOM() : child
-        ),
-      ];
-    }
+    const childDOMs = this.content
+      .map((child) => {
+        if (TSENode.isTSENode(child)) {
+          const domRepresentation = child.toDOM();
+          return domRepresentation.length > 0 ? domRepresentation : null;
+        }
+        return typeof child === 'string' ? child : null;
+      })
+      .filter((child) => child !== null); // null 값 필터링
 
-    if (this.type === 'heading') {
-      return [
-        'h' + this.attrs.level,
-        this.attrs,
-        ...this.content.map((child) =>
-          child instanceof TSENode ? child.toDOM() : child
-        ),
-      ];
+    if (this.type === 'paragraph') {
+      return ['p', this.attrs, ...childDOMs];
+    } else if (this.type === 'heading') {
+      return ['h' + this.attrs.level, this.attrs, ...childDOMs];
     }
-    return [
-      'div',
-      this.attrs,
-      ...this.content.map((child) =>
-        child instanceof TSENode ? child.toDOM() : child
-      ),
-    ];
+    return ['div', this.attrs, ...childDOMs];
   }
 
   // JSON 직렬화 기능

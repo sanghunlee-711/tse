@@ -13,6 +13,11 @@ interface SchemaSpec {
   nodes: TSENodesSpec;
 }
 
+/**
+ * @description
+ * Schema 클래스는 에디터에서 허용하는 노드 타입과 구조를 정의합니다.
+ * 기본적인 문서 노드 구조를 정의하고, 문서에서 사용할 수 있는 다양한 노드 타입을 설정할 수 있습니다.
+ */
 class Schema {
   spec: SchemaSpec;
   nodes: TSENodesSpec;
@@ -51,7 +56,14 @@ class Schema {
     return new TSENode(
       type,
       attrs,
-      content.map((childJson: any) => this.nodeFromJSON(childJson))
+      Array.isArray(content) // content가 배열인지 확인
+        ? content.map(
+            (childJson: any) =>
+              typeof childJson === 'object' && childJson !== null
+                ? this.nodeFromJSON(childJson) // 객체인 경우 재귀 호출
+                : childJson // 문자열인 경우 그대로 추가
+          )
+        : content // content가 배열이 아닌 경우 그대로 추가
     );
   }
 }
