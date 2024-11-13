@@ -1,9 +1,7 @@
 import Schema from './Schema';
 
 class Transaction extends Schema {
-  constructor() {
-    super();
-  }
+  constructor() {}
 
   make(e: Event) {}
 }
