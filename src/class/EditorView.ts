@@ -1,7 +1,53 @@
 import EditorState from './EditorState';
 import Transaction from './Transaction';
 import NodeView from './NodeView';
-import TSENode from './TSENode';
+import TSENode, { TSENodeContent } from './TSENode';
+import { ResolvedPos, resolveFromPosition } from './Resolvedpos';
+
+function findNodeByCarrotPosition(
+  domNode: Node,
+  offsetInDOM: number,
+  rootNode: TSENode
+): { node: TSENode; localOffset: number; absoluteOffset: number } | null {
+  function traverse(
+    node: TSENode,
+    accumulatedOffset: number
+  ): { node: TSENode; localOffset: number; absoluteOffset: number } | null {
+    if (node.domRef === domNode) {
+      // 현재 노드가 Carrot 위치에 대응되면 반환
+      return {
+        node,
+        localOffset: offsetInDOM,
+        absoluteOffset: accumulatedOffset + offsetInDOM,
+      };
+    }
+
+    for (const child of node.content) {
+      if (typeof child === 'string') {
+        if (
+          domNode.nodeType === Node.TEXT_NODE &&
+          child.includes(domNode.textContent || '')
+        ) {
+          const localOffset = offsetInDOM; // 로컬 오프셋 계산
+          return {
+            node,
+            localOffset,
+            absoluteOffset: accumulatedOffset + localOffset,
+          };
+        }
+        accumulatedOffset += child.length; // 문자열 길이 누적
+      } else if (child instanceof TSENode) {
+        const result = traverse(child, accumulatedOffset); // 재귀적으로 탐색
+        if (result) return result;
+        accumulatedOffset += child.weight; // 자식 노드의 가중치 누적
+      }
+    }
+
+    return null; // 탐색 실패
+  }
+
+  return traverse(rootNode, 0);
+}
 
 interface Plugin {
   apply(view: EditorView, transaction: Transaction): void;
@@ -143,7 +189,7 @@ class EditorView {
       const insertedText = event.data || '';
 
       if (insertedText) {
-        this.insertText(insertedText, selection.from);
+        this.insertText(insertedText);
       }
     }
 
@@ -153,38 +199,65 @@ class EditorView {
     }
   }
 
-  // 텍스트 삽입 트랜잭션 생성
-  insertText(text: string, position: number) {
-    // 현재 커서가 위치한 단락(`paragraph`) 노드를 찾음
-    const currentParagraphIndex = this.state.doc.content.findIndex(
-      (node) => node instanceof TSENode && node.type === 'paragraph'
-    );
+  resolvePosition(offset: number): { node: TSENode; localOffset: number } {
+    let accumulatedOffset = 0;
 
-    if (currentParagraphIndex === -1) return; // 현재 문서에 paragraph 노드가 없다면 종료
-
-    const currentParagraphNode = this.state.doc.content[
-      currentParagraphIndex
-    ] as TSENode;
-
-    // 기존 content 배열의 마지막 항목을 문자열로 누적하여 전체 텍스트를 관리
-    if (
-      typeof currentParagraphNode.content[
-        currentParagraphNode.content.length - 1
-      ] === 'string'
-    ) {
-      // 마지막 항목이 문자열이라면 누적
-      currentParagraphNode.content[currentParagraphNode.content.length - 1] +=
-        text;
-    } else {
-      // 마지막 항목이 문자열이 아니라면 새로 추가
-      currentParagraphNode.content.push(text);
+    function traverse(
+      node: TSENode
+    ): { node: TSENode; localOffset: number } | null {
+      for (const child of node.content) {
+        if (typeof child === 'string') {
+          const length = child.length;
+          if (accumulatedOffset + length >= offset) {
+            return { node, localOffset: offset - accumulatedOffset };
+          }
+          accumulatedOffset += length;
+        } else if (child instanceof TSENode) {
+          if (accumulatedOffset + child.weight >= offset) {
+            return traverse(child);
+          }
+          accumulatedOffset += child.weight;
+        }
+      }
+      return null;
     }
 
-    // 해당 노드의 변경 사항을 반영하는 트랜잭션 생성
+    const result = traverse(this.state.doc);
+    if (!result) {
+      throw new Error('Position out of bounds');
+    }
+    return result;
+  }
+
+  // 텍스트 삽입 트랜잭션 생성
+  insertText(text: string) {
+    // 현재 Selection의 시작 위치를 가져옴
+    const { from } = this.state.selection;
+    console.log({ from });
+    // 커서 위치를 기반으로 노드와 로컬 오프셋 계산
+    const { node, localOffset } = this.resolvePosition(from);
+
+    if (!node || typeof node.content === 'string') {
+      console.error('텍스트 삽입이 불가능한 위치입니다.');
+      return;
+    }
+
+    // 텍스트 삽입 처리
+    const updatedContent = [...node.content];
+    if (typeof updatedContent[localOffset] === 'string') {
+      // 현재 위치가 문자열이라면, 기존 텍스트에 추가
+      updatedContent[localOffset] += text;
+    } else {
+      // 현재 위치가 노드라면, 새로운 문자열 추가
+      updatedContent.splice(localOffset, 0, text);
+    }
+
+    // 트랜잭션을 생성하여 상태 업데이트
     const transaction = new Transaction(this.state.schema);
-    transaction.updateNodeAttrs(currentParagraphIndex, {
-      content: currentParagraphNode.content,
+    transaction.updateNodeAttrs(this.state.doc.content.indexOf(node), {
+      content: updatedContent,
     });
+
     this.dispatch(transaction);
   }
 
@@ -198,63 +271,123 @@ class EditorView {
   // 커서 위치를 기반으로 Selection 업데이트
   updateSelection() {
     const selection = document.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      const startOffset = range.startOffset;
-      const endOffset = range.endOffset;
+    if (!selection || selection.rangeCount === 0) {
+      console.error('선택 영역이 없습니다.');
+      return;
+    }
 
-      // 현재 선택 위치를 EditorState에 저장
+    const range = selection.getRangeAt(0);
+    const startNode = range.startContainer;
+    const offsetInDOM = range.startOffset;
+
+    const result = findNodeByCarrotPosition(
+      startNode,
+      offsetInDOM,
+      this.state.doc
+    );
+    if (result) {
       this.state = this.state.setSelection({
-        from: startOffset,
-        to: endOffset,
+        from: result.absoluteOffset,
+        to: result.absoluteOffset,
       });
-      console.log(this.state);
+      console.log(
+        `Selection updated: 
+          node=${result.node.type},
+          absoluteOffset=${result.absoluteOffset}
+          
+        `
+      );
     }
   }
 
   // 키다운 이벤트 처리 (예: 단축키 처리)
+  // handleKeydown(event: KeyboardEvent) {
+  //   if (event.key === 'Enter') {
+  //     event.preventDefault(); // 기본 Enter 키 동작 방지
+
+  //     const selection = this.state.selection;
+  //     const currentParagraphIndex = this.state.doc.content.findIndex(
+  //       (node, index) =>
+  //         index === selection.from &&
+  //         node instanceof TSENode &&
+  //         node.type === 'paragraph'
+  //     );
+  //     //TODO :커서가 집힌 위치에서 paragraph를 분리해야하는데 해당 노드의 인덱스를 찾아야함.
+  //     console.log(currentParagraphIndex);
+
+  //     if (currentParagraphIndex === -1) return;
+
+  //     const currentParagraphNode = this.state.doc.content[
+  //       currentParagraphIndex
+  //     ] as TSENode;
+
+  //     // 현재 커서 위치를 기준으로 텍스트를 나누기
+  //     const beforeText = currentParagraphNode.content.slice(0, selection.from);
+  //     const afterText = currentParagraphNode.content.slice(selection.from);
+
+  //     // 기존 단락을 분할하여 새로운 단락을 추가하는 트랜잭션 생성
+  //     const transaction = new Transaction(this.state.schema);
+
+  //     // 기존 단락 업데이트
+  //     transaction.updateNodeAttrs(currentParagraphIndex, {
+  //       content: beforeText,
+  //     });
+
+  //     // 새로운 단락 추가
+  //     const newParagraphNode = new TSENode('paragraph', {}, afterText);
+  //     transaction.addNode(
+  //       newParagraphNode.type,
+  //       newParagraphNode.attrs,
+  //       newParagraphNode.content
+  //     );
+
+  //     // 트랜잭션 처리
+  //     this.dispatch(transaction);
+  //   }
+  // }
+
   handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter') {
       event.preventDefault(); // 기본 Enter 키 동작 방지
 
+      // 현재 Selection을 업데이트 (커서 위치를 기준으로)
+      this.updateSelection();
+
+      // 현재 상태에서 커서 위치 가져오기
       const selection = this.state.selection;
-      const currentParagraphIndex = this.state.doc.content.findIndex(
-        (node, index) =>
-          index === selection.from &&
-          node instanceof TSENode &&
-          node.type === 'paragraph'
-      );
-      //TODO :커서가 집힌 위치에서 paragraph를 분리해야하는데 해당 노드의 인덱스를 찾아야함.
-      console.log(currentParagraphIndex);
+      const resolvedPos = this.resolvePosition(selection.from);
+      console.log('@?', { resolvedPos });
+      // 현재 커서가 위치한 노드 및 해당 노드에서의 오프셋을 구함
+      const currentNode = resolvedPos.node;
+      const localOffset = resolvedPos.localOffset;
 
-      if (currentParagraphIndex === -1) return;
+      // 노드를 나누기 위한 작업
+      if (currentNode instanceof TSENode) {
+        const beforeText = currentNode.content.slice(0, localOffset);
+        const afterText = currentNode.content.slice(localOffset);
+        console.log({ beforeText, afterText });
+        // 기존 단락을 분할하여 새로운 단락을 추가하는 트랜잭션 생성
+        const transaction = new Transaction(this.state.schema);
 
-      const currentParagraphNode = this.state.doc.content[
-        currentParagraphIndex
-      ] as TSENode;
+        // 기존 단락 업데이트
+        const currentNodeIndex = this.state.doc.content.indexOf(currentNode);
+        if (currentNodeIndex !== -1) {
+          transaction.updateNodeAttrs(currentNodeIndex, {
+            content: beforeText,
+          });
 
-      // 현재 커서 위치를 기준으로 텍스트를 나누기
-      const beforeText = currentParagraphNode.content.slice(0, selection.from);
-      const afterText = currentParagraphNode.content.slice(selection.from);
+          // 새로운 단락 추가
+          const newParagraphNode = new TSENode('paragraph', {}, afterText);
+          transaction.addNode(
+            newParagraphNode.type,
+            newParagraphNode.attrs,
+            newParagraphNode.content
+          );
 
-      // 기존 단락을 분할하여 새로운 단락을 추가하는 트랜잭션 생성
-      const transaction = new Transaction(this.state.schema);
-
-      // 기존 단락 업데이트
-      transaction.updateNodeAttrs(currentParagraphIndex, {
-        content: beforeText,
-      });
-
-      // 새로운 단락 추가
-      const newParagraphNode = new TSENode('paragraph', {}, afterText);
-      transaction.addNode(
-        newParagraphNode.type,
-        newParagraphNode.attrs,
-        newParagraphNode.content
-      );
-
-      // 트랜잭션 처리
-      this.dispatch(transaction);
+          // 트랜잭션 처리
+          this.dispatch(transaction);
+        }
+      }
     }
   }
 
