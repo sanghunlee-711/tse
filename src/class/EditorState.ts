@@ -1,6 +1,7 @@
 import TSENode from './TSENode';
 import Transaction from './Transaction';
 import Schema from './Schema';
+import { ResolvedPos } from './Resolvedpos';
 
 interface EditorStateConfig {
   schema: Schema;
@@ -83,6 +84,36 @@ class EditorState {
   // 선택 상태를 설정하는 메서드로, 커서 위치나 선택 범위를 업데이트할 때 사용됩니다.
   setSelection(selection: Selection): EditorState {
     return new EditorState({ schema: this.schema, doc: this.doc }, selection);
+  }
+
+  resolvePosition(offset: number): ResolvedPos {
+    let accumulatedOffset = 0;
+
+    function traverse(node: TSENode): ResolvedPos | null {
+      for (const [index, child] of node.content.entries()) {
+        if (typeof child === 'string') {
+          const length = child.length;
+          if (accumulatedOffset + length >= offset) {
+            return new ResolvedPos([index], offset - accumulatedOffset, node);
+          }
+          accumulatedOffset += length;
+        } else if (child instanceof TSENode) {
+          if (accumulatedOffset + child.weight >= offset) {
+            const result = traverse(child);
+            if (result) {
+              result.path.unshift(index); // 현재 노드의 인덱스를 경로에 추가
+              return result;
+            }
+          }
+          accumulatedOffset += child.weight;
+        }
+      }
+      return null;
+    }
+
+    const resolved = traverse(this.doc);
+    if (!resolved) throw new Error('Offset out of bounds');
+    return resolved;
   }
 }
 

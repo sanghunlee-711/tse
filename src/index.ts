@@ -35,6 +35,7 @@ if (rootElement) {
   transaction.addNode('paragraph', {}, [
     'This is a new paragraph added dynamically.',
   ]);
+  transaction.addNode('paragraph', {}, ['One More Line !@!']);
   editorView.dispatch(transaction);
 
   const $consoleButton = document.getElementById('console-button');

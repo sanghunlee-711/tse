@@ -1,4 +1,5 @@
 import { TSENodeAttributes } from '@src/types';
+import { ResolvedPos } from './Resolvedpos';
 
 export type TSENodeContent = TSENode | string;
 
@@ -9,6 +10,8 @@ class TSENode {
   type: string;
   attrs: TSENodeAttributes;
   content: TSENodeContent[];
+  weight: number;
+  domRef?: Node; // TSENode와 매핑된 DOM 노드를 저장
 
   constructor(
     type: string,
@@ -18,6 +21,7 @@ class TSENode {
     this.type = type;
     this.attrs = attrs;
     this.content = content;
+    this.weight = this.calculateWeight(); // 노드의 초기 가중치 계산
   }
 
   static isTSENode(node: any): node is TSENode {
@@ -109,6 +113,34 @@ class TSENode {
     }
 
     return changes;
+  }
+
+  getNodeLength(): number {
+    if (typeof this === 'string') {
+      return (this as string).length;
+    } else if (this instanceof TSENode) {
+      // TSENode인 경우 content를 순회하며 자식 노드의 길이를 합산
+      return this.content.reduce((acc, child) => {
+        if (typeof child === 'string') {
+          return acc + child.length;
+        } else if (child instanceof TSENode) {
+          return acc + child.getNodeLength();
+        }
+        return acc;
+      }, 0);
+    }
+    return 0;
+  }
+
+  private calculateWeight(): number {
+    return this.content.reduce((sum, child) => {
+      if (typeof child === 'string') {
+        return sum + child.length;
+      } else if (child instanceof TSENode) {
+        return sum + child.weight;
+      }
+      return sum;
+    }, 0);
   }
 }
 
