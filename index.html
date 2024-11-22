@@ -1,24 +1,38 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TSE</title>
     <style>
-        #tse {
-            border: 1px solid black;
-            border-radius: 12px;
-            background-color: white;
-            margin-bottom: 12px;
-        }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #output {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        background-color: #f9f9f9;
+        font-style: italic;
+        color: #333;
+      }
+      #tse {
+        border: 1px solid black;
+        border-radius: 12px;
+        background-color: white;
+        margin-bottom: 12px;
+        padding: 10px;
+        border: 1px solid black;
+        border-radius: 12px;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div id="tse"></div>
-    <button id="console-button">
-        Console Current State
-    </button>
+    <button id="console-button">Console Current State</button>
+    <div id="output"></div>
     <script type="module" src="/src/index.ts"></script>
-</body>
+  </body>
 </html>

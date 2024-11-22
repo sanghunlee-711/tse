@@ -4,7 +4,8 @@ import TSENode from './TSENode';
 /**
  * @description
  * Transaction 클래스는 문서 상태를 변경하는 여러 단계를 저장하고,
- * apply 메서드를 통해 한 번에 상태를 갱신합니다.
+ * 노드 추가/삭제와 같은 명령을 기록,
+ * apply 메서드를 통해 한 번에 상태를 갱신.
  */
 
 interface TransactionAttrs {
