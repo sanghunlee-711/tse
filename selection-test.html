@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Text Selection Viewer with TSENode</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      #output {
+        margin-top: 20px;
+        padding: 10px;
+        border: 1px solid #ccc;
+        background-color: #f9f9f9;
+        font-style: italic;
+        color: #333;
+      }
+      #content {
+        padding: 10px;
+        border: 1px solid black;
+        border-radius: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Text Selection Viewer with TSENode</h1>
+    <p>
+      아래 텍스트를 드래그하거나 커서를 위치하세요. 선택된 노드와 오프셋이
+      표시됩니다.
+    </p>
+    <div id="content" contenteditable="true"></div>
+    <div id="output">결과가 여기에 표시됩니다.</div>
+
+    <script>
+      const $content = document.getElementById('content');
+      const OFFSET_DELIMITER = 1;
+
+      /**
+       * TSENode 클래스는 문서의 구조와 콘텐츠를 정의합니다.
+       * @class
+       */
+      class TSENode {
+        /**
+         * @param {string} type - 노드의 유형 (예: 'paragraph', 'text')
+         * @param {Array|string} content - 노드의 콘텐츠 (자식 TSENode 또는 문자열)
+         * @param {number} startOffset - 노드의 시작 오프셋
+         */
+        constructor(type, content = [], startOffset = 0) {
+          this.type = type;
+          this.content = content;
+          this.startOffset = startOffset;
+          this.endOffset = this.calculateEndOffset();
+        }
+
+        /**
+         * 노드의 종료 오프셋을 계산합니다.
+         * @returns {number} 종료 오프셋
+         */
+        calculateEndOffset() {
+          if (typeof this.content === 'string') {
+            return this.startOffset + this.content.length;
+          }
+          if (Array.isArray(this.content)) {
+            let endOffset = this.startOffset;
+            this.content.forEach((child) => {
+              if (child instanceof TSENode) {
+                endOffset = Math.max(endOffset, child.calculateEndOffset());
+              } else if (typeof child === 'string') {
+                endOffset += child.length;
+              }
+            });
+            return endOffset;
+          }
+          return this.startOffset;
+        }
+
+        /**
+         * 전체 노드 계층 구조에서 오프셋을 재계산합니다.
+         */
+        recalculateOffsets() {
+          let currentOffset = this.startOffset;
+
+          const updateOffsets = (node) => {
+            // 현재 노드의 startOffset 재설정
+            node.startOffset = currentOffset;
+
+            // 현재 노드의 endOffset 계산
+            if (typeof node.content === 'string') {
+              node.endOffset = node.startOffset + node.content.length;
+            } else if (Array.isArray(node.content)) {
+              node.endOffset = node.startOffset;
+              node.content.forEach((child) => {
+                if (child instanceof TSENode) {
+                  updateOffsets(child); // 자식 노드의 오프셋 갱신
+                  node.endOffset = child.endOffset; // 마지막 자식 노드의 종료 오프셋을 반영
+                } else if (typeof child === 'string') {
+                  node.endOffset += child.length;
+                }
+              });
+            }
+
+            // 다음 노드의 시작 오프셋 계산
+            currentOffset = node.endOffset + OFFSET_DELIMITER;
+          };
+
+          updateOffsets(this); // 루트 노드부터 갱신 시작
+        }
+
+        /**
+         * 노드를 DOM 요소로 변환합니다.
+         * @returns {HTMLElement|Text} DOM 요소
+         */
+        toDOM() {
+          const element = this.type === 'paragraph' ? 'p' : 'div';
+          const domElement = document.createElement(element);
+
+          this.content.forEach((child) => {
+            domElement.appendChild(
+              typeof child === 'string'
+                ? document.createTextNode(child)
+                : child.toDOM()
+            );
+          });
+
+          return domElement;
+        }
+      }
+
+      class Selection {
+        constructor(rootNode) {
+          this.rootNode = rootNode;
+          this.matchedNode = null;
+          this.startOffset = 0;
+          this.endOffset = 0;
+          this.range = null;
+        }
+
+        /**
+         * 특정 오프셋에 해당하는 TSENode를 찾습니다.
+         * @param {TSENode} node - 탐색할 루트 노드
+         * @param {number} offset - 찾을 오프셋
+         * @returns {TSENode|null} 해당 오프셋에 매칭되는 노드
+         */
+        findNodeByOffset(node, offset) {
+          if (offset >= node.startOffset && offset <= node.endOffset) {
+            if (typeof node.content === 'string') {
+              return node;
+            }
+            if (Array.isArray(node.content)) {
+              for (const child of node.content) {
+                const found = this.findNodeByOffset(child, offset);
+                if (found) return found;
+              }
+            }
+            return node;
+          }
+          return null;
+        }
+
+        /**
+         * 현재 선택된 범위 정보를 업데이트합니다.
+         * @returns {{matchedNode: TSENode|null, startOffset: number, endOffset: number, range: Range}} 선택 정보
+         */
+        updateSelection = () => {
+          const selection = window.getSelection();
+          if (!selection.rangeCount) return;
+
+          const range = selection.getRangeAt(0);
+          this.startOffset = calculateAbsoluteOffsetFromDOM(
+            range.startContainer,
+            range.startOffset
+          );
+          this.endOffset = calculateAbsoluteOffsetFromDOM(
+            range.endContainer,
+            range.endOffset
+          );
+
+          this.matchedNode = this.findNodeByOffset(
+            this.rootNode,
+            this.startOffset
+          );
+
+          const output = document.getElementById('output');
+          const nodeContent =
+            typeof this.matchedNode?.content === 'string'
+              ? this.matchedNode.content
+              : this.matchedNode?.content?.join('');
+
+          if (this.startOffset === this.endOffset) {
+            output.textContent = `커서 위치: ${this.startOffset}, 노드 내용: "${nodeContent}", 노드 범위: "${this.matchedNode?.startOffset} ~ ${this.matchedNode?.endOffset}"`;
+          } else {
+            output.textContent = `선택 범위: ${this.startOffset} ~ ${this.endOffset}, 노드 내용: "${nodeContent}", 노드 범위: "${this.matchedNode?.startOffset} ~ ${this.matchedNode?.endOffset}"`;
+          }
+
+          return {
+            matchedNode: this.matchedNode,
+            startOffset: this.startOffset,
+            endOffset: this.endOffset,
+            range: this.range,
+          };
+        };
+      }
+
+      /**
+       * TSENode 트리 구조를 생성합니다.
+       * @returns {TSENode} 생성된 루트 노드
+       */
+      function createTSENodes() {
+        const paragraphs = [
+          'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
+          'Nulla nec nunc ac odio volutpat pellentesque.',
+          'Fusce sit amet ante vel ligula eleifend sollicitudin.',
+          'nisi eros interdum nisi, vel laoreet massa lorem id sapien.',
+        ];
+
+        let currentOffset = 0;
+        const children = paragraphs.map((text) => {
+          const node = new TSENode('paragraph', [text], currentOffset);
+          currentOffset = node.endOffset + OFFSET_DELIMITER;
+          return node;
+        });
+
+        return new TSENode('doc', children, 0);
+      }
+
+      /**
+       * TSENode 트리를 DOM에 렌더링합니다.
+       * @param {TSENode} rootNode - 루트 노드
+       * @param {HTMLElement} container - 렌더링할 DOM 컨테이너
+       */
+      function renderDOM(rootNode, container) {
+        container.innerHTML = '';
+        container.appendChild(rootNode.toDOM());
+      }
+
+      /**
+       * DOM 노드로부터 절대 오프셋을 계산합니다.
+       * @param {Node} node - DOM 노드
+       * @param {number} offset - 노드 내부의 상대 오프셋
+       * @returns {number} 절대 오프셋
+       */
+      function calculateAbsoluteOffsetFromDOM(node, offset) {
+        let currentNode = node;
+        let accumulatedOffset = offset;
+
+        while (currentNode && currentNode.previousSibling) {
+          currentNode = currentNode.previousSibling;
+          const textLength = currentNode.textContent?.length || 0;
+          accumulatedOffset += textLength + OFFSET_DELIMITER;
+        }
+
+        if (currentNode.parentNode && currentNode.parentNode !== $content) {
+          return (
+            accumulatedOffset +
+            calculateAbsoluteOffsetFromDOM(currentNode.parentNode, 0)
+          );
+        }
+
+        return accumulatedOffset;
+      }
+
+      const rootNode = createTSENodes();
+      const selection = new Selection(rootNode);
+
+      /**
+       * 입력 이벤트를 처리합니다.
+       * @param {InputEvent} event - 입력 이벤트 객체
+       */
+      function handleInput(event) {
+        const matchedNode = selection.matchedNode;
+        const startOffset = selection.startOffset;
+        const endOffset = selection.endOffset;
+        const range = selection.range;
+
+        const inputType = event.inputType;
+        const insertedText = event.data || '';
+
+        const localOffset = startOffset - matchedNode.startOffset;
+
+        if (inputType === 'insertText') {
+          if (
+            Array.isArray(matchedNode.content) &&
+            matchedNode.content.length
+          ) {
+            const modifiedOffset = localOffset;
+            const startString = matchedNode.content[0].slice(0, modifiedOffset);
+            const endString = matchedNode.content[0].slice(modifiedOffset);
+
+            matchedNode.content[0] =
+              matchedNode.content[0].slice(0, modifiedOffset) +
+              insertedText +
+              matchedNode.content[0].slice(modifiedOffset);
+          }
+        }
+
+        if (inputType === 'deleteContentBackward') {
+          if (
+            Array.isArray(matchedNode.content) &&
+            matchedNode.content.length
+          ) {
+            const modifiedOffset = localOffset;
+            const startString = matchedNode.content[0].slice(0, modifiedOffset);
+            const endString = matchedNode.content[0].slice(modifiedOffset + 1);
+
+            matchedNode.content[0] = startString + endString;
+          }
+        }
+
+        rootNode.recalculateOffsets();
+
+        // requestAnimationFrame(() => {
+        //   renderDOM(rootNode, $content);
+        // });
+        console.log(rootNode);
+      }
+
+      renderDOM(rootNode, $content);
+
+      $content.addEventListener('mouseup', selection.updateSelection);
+      $content.addEventListener('keyup', selection.updateSelection);
+      $content.addEventListener('input', handleInput);
+    </script>
+  </body>
+</html>
