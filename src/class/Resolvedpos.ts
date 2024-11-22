@@ -31,8 +31,6 @@ export function resolveFromPosition(
   doc: TSENode,
   from: number
 ): ResolvedPos | null {
-  // console.log({ doc, from });
-
   let positionCounter = 0;
   let result: ResolvedPos | null = null;
 

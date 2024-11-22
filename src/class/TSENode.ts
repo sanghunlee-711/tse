@@ -1,7 +1,7 @@
 import { TSENodeAttributes } from '@src/types';
-import { ResolvedPos } from './Resolvedpos';
 
 export type TSENodeContent = TSENode | string;
+const OFFSET_DELIMITER = 1;
 
 /**
  * @description TSENode 클래스는 각 Node의 속성, 타입, DOM 표현을 정의합니
@@ -10,18 +10,20 @@ class TSENode {
   type: string;
   attrs: TSENodeAttributes;
   content: TSENodeContent[];
-  weight: number;
-  domRef?: Node; // TSENode와 매핑된 DOM 노드를 저장
+  startOffset: number;
+  endOffset: number;
 
   constructor(
     type: string,
     attrs: TSENodeAttributes,
-    content: TSENodeContent[] = []
+    content: TSENodeContent[] = [],
+    startOffset: number = 0
   ) {
     this.type = type;
     this.attrs = attrs;
     this.content = content;
-    this.weight = this.calculateWeight(); // 노드의 초기 가중치 계산
+    this.startOffset = startOffset;
+    this.endOffset = this.calculateEndOffset();
   }
 
   static isTSENode(node: any): node is TSENode {
@@ -50,6 +52,61 @@ class TSENode {
       return ['h' + this.attrs.level, this.attrs, ...childDOMs];
     }
     return ['div', this.attrs, ...childDOMs];
+  }
+
+  /**
+   * 노드의 종료 오프셋을 계산합니다.
+   * @returns {number} 종료 오프셋
+   */
+  private calculateEndOffset(): number {
+    if (typeof this.content === 'string') {
+      return this.startOffset + (this.content as string).length;
+    }
+
+    if (Array.isArray(this.content)) {
+      let endOffset = this.startOffset;
+      this.content.forEach((child) => {
+        if (child instanceof TSENode) {
+          endOffset = Math.max(endOffset, child.calculateEndOffset());
+        } else if (typeof child === 'string') {
+          endOffset += child.length;
+        }
+      });
+      return endOffset;
+    }
+    return this.startOffset;
+  }
+
+  /**
+   * 전체 노드 계층 구조에서 오프셋을 재계산합니다.
+   */
+  recalculateOffsets() {
+    let currentOffset = this.startOffset;
+
+    const updateOffsets = (node: TSENode) => {
+      // 현재 노드의 startOffset 재설정
+      node.startOffset = currentOffset;
+
+      // 현재 노드의 endOffset 계산
+      if (typeof node.content === 'string') {
+        node.endOffset = node.startOffset + (node.content as string).length;
+      } else if (Array.isArray(node.content)) {
+        node.endOffset = node.startOffset;
+        node.content.forEach((child) => {
+          if (child instanceof TSENode) {
+            updateOffsets(child); // 자식 노드의 오프셋 갱신
+            node.endOffset = child.endOffset; // 마지막 자식 노드의 종료 오프셋을 반영
+          } else if (typeof child === 'string') {
+            node.endOffset += child.length;
+          }
+        });
+      }
+
+      // 다음 노드의 시작 오프셋 계산
+      currentOffset = node.endOffset + OFFSET_DELIMITER;
+    };
+
+    updateOffsets(this); // 루트 노드부터 갱신 시작
   }
 
   // JSON 직렬화 기능
@@ -130,17 +187,6 @@ class TSENode {
       }, 0);
     }
     return 0;
-  }
-
-  private calculateWeight(): number {
-    return this.content.reduce((sum, child) => {
-      if (typeof child === 'string') {
-        return sum + child.length;
-      } else if (child instanceof TSENode) {
-        return sum + child.weight;
-      }
-      return sum;
-    }, 0);
   }
 }
 
