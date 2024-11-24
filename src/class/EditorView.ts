@@ -142,13 +142,20 @@ class EditorView {
     const { node, localOffset } = resolvedPos;
     const transaction = new Transaction(this.state.schema);
 
-    if (typeof node.content === 'string') {
-      const updatedContent =
-        (node.content as string).slice(0, localOffset - 1) +
-        (node.content as string).slice(localOffset);
-      const currNodeIndex = this.state.doc.content.indexOf(node);
+    if (node.content.length > 0) {
+      node.content.forEach((eachContent) => {
+        if (typeof eachContent === 'string') {
+          const updatedEachContent =
+            (eachContent as string).slice(0, localOffset - 1) +
+            (eachContent as string).slice(localOffset);
 
-      transaction.updateNodeContents(currNodeIndex, [updatedContent]);
+          transaction.updateNodeContents(this.state.doc.content.indexOf(node), [
+            updatedEachContent,
+          ]);
+        } else if (typeof eachContent === 'object') {
+          //텍스트가 아닌 다른 노드 타입인 경우 여기서 처리 필요.
+        }
+      });
     }
 
     return transaction;
