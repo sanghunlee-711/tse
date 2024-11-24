@@ -45,6 +45,12 @@ class Selection {
     }
   }
 
+  /**
+   * TSENode와 offset을 통해 TSENode를 찾아냅니다.
+   * @param {TSENode} node - TSENode (루트 TSENode)
+   * @param {number} offset - 노드 내부의 상대 오프셋
+   * @returns {TSENode} TSENode
+   */
   findNodeByOffset(node: TSENode | string, offset: number): TSENode | null {
     if (typeof node === 'string') return null;
     if (offset >= node.startOffset && offset <= node.endOffset) {
