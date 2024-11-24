@@ -40,8 +40,8 @@ class EditorView {
    * DOM을 렌더링합니다.
    */
   render() {
-    this.rootElement.setAttribute('contentEditable', 'true');
     this.rootElement.innerHTML = '';
+    this.rootElement.setAttribute('contentEditable', 'true');
 
     this.state.doc.content.forEach((node) => {
       if (node instanceof TSENode) {
@@ -59,9 +59,9 @@ class EditorView {
    */
   addEventListeners() {
     // input 이벤트 처리
-    this.rootElement.addEventListener('input', () =>
-      this.handleInput.bind(this)
-    );
+    this.rootElement.addEventListener('input', (e) => {
+      this.handleInput(e as InputEvent);
+    });
 
     // 커서 또는 선택 범위 업데이트 처리
     this.rootElement.addEventListener('mouseup', () =>
@@ -84,6 +84,9 @@ class EditorView {
     } else if (event.inputType === 'deleteContentBackward') {
       const transaction = this.createDeleteTransaction();
       this.dispatch(transaction);
+    } else if (event.inputType === 'Enter') {
+      const transaction = this.createEnterTransaction();
+      this.dispatch(transaction);
     }
   }
 
@@ -94,7 +97,6 @@ class EditorView {
    */
   createInsertTransaction(text: string): Transaction {
     const { startOffset } = this.selection;
-    //*TODO: resolvePosition을 Selection으로 이동 시켜도 될 것 같다.
 
     const resolvedPos = this.state.resolvePosition(startOffset);
 
@@ -103,16 +105,22 @@ class EditorView {
     }
 
     const { node, localOffset } = resolvedPos;
+
     const transaction = new Transaction(this.state.schema);
+    if (node.content.length > 0) {
+      node.content.forEach((eachContent) => {
+        if (typeof eachContent === 'string') {
+          const updatedEachContent =
+            (eachContent as string).slice(0, localOffset) +
+            text +
+            (eachContent as string).slice(localOffset);
 
-    if (typeof node.content === 'string') {
-      const updatedContent =
-        (node.content as string).slice(0, localOffset) +
-        text +
-        (node.content as string).slice(localOffset);
-
-      transaction.updateNodeAttrs(this.state.doc.content.indexOf(node), {
-        content: updatedContent,
+          transaction.updateNodeContents(this.state.doc.content.indexOf(node), [
+            updatedEachContent,
+          ]);
+        } else if (typeof eachContent === 'object') {
+          //텍스트가 아닌 다른 노드 타입인 경우 여기서 처리 필요.
+        }
       });
     }
 
@@ -138,11 +146,20 @@ class EditorView {
       const updatedContent =
         (node.content as string).slice(0, localOffset - 1) +
         (node.content as string).slice(localOffset);
+      const currNodeIndex = this.state.doc.content.indexOf(node);
 
-      transaction.updateNodeAttrs(this.state.doc.content.indexOf(node), {
-        content: updatedContent,
-      });
+      transaction.updateNodeContents(currNodeIndex, [updatedContent]);
     }
+
+    return transaction;
+  }
+
+  /**
+   * 엔터키를 눌렀을 때 상태를 변경할 트랜잭션을 생성합니다.
+   * @returns {Transaction} Enter키로 인해 생성된 트랜잭션
+   */
+  createEnterTransaction(): Transaction {
+    const transaction = new Transaction(this.state.schema);
 
     return transaction;
   }

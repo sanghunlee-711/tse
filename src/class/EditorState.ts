@@ -57,7 +57,7 @@ class EditorState {
 
     const result = traverse(this.doc);
     if (!result) throw new Error('Offset out of bounds');
-    console.log('resolve??', result);
+
     return result;
   }
 

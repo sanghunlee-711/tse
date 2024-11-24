@@ -1,5 +1,5 @@
 import Schema from './Schema';
-import TSENode from './TSENode';
+import TSENode, { TSENodeContent } from './TSENode';
 
 /**
  * @description
@@ -37,13 +37,44 @@ class Transaction {
   // 특정 노드의 속성을 업데이트하는 단계 설정
   updateNodeAttrs(nodeIndex: number, newAttrs: TransactionAttrs): this {
     this.steps.push((doc) => {
-      const updatedContent = doc.content.map((node, index) =>
-        index === nodeIndex && node instanceof TSENode
-          ? new TSENode(node.type, { ...node.attrs, ...newAttrs }, node.content)
-          : node
-      );
+      const updatedContent = doc.content.map((node, index) => {
+        if (index === nodeIndex && node instanceof TSENode) {
+          return new TSENode(
+            node.type,
+            { ...newAttrs },
+            node.content,
+            node.startOffset
+          );
+        }
+
+        return node;
+      });
+
       return new TSENode(doc.type, doc.attrs, updatedContent);
     });
+
+    return this;
+  }
+
+  // 특정 노드의 속성을 업데이트하는 단계 설정
+  updateNodeContents(nodeIndex: number, newContents: TSENodeContent[]): this {
+    this.steps.push((doc) => {
+      const updatedContent = doc.content.map((node, index) => {
+        if (index === nodeIndex && node instanceof TSENode) {
+          return new TSENode(
+            node.type,
+            node.attrs,
+            newContents,
+            node.startOffset
+          );
+        }
+
+        return node;
+      });
+
+      return new TSENode(doc.type, doc.attrs, updatedContent);
+    });
+
     return this;
   }
 }
