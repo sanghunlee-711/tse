@@ -2,6 +2,7 @@ import TSENode from './TSENode';
 import Transaction from './Transaction';
 import Selection from './Selection';
 import Schema from './Schema';
+import { OFFSET_DELIMITER } from '@src/constants/delimiter';
 
 export interface EditorStateConfig {
   schema: Schema; // schema 속성 추가
@@ -35,20 +36,33 @@ class EditorState {
 
   resolvePosition(offset: number) {
     let accumulatedOffset = 0;
+    /**
+     * @description 문단을 넘어가면 traverse를 할 때마다 다음 노드의 첫번째 offset이 이전 노드의 마지막 offset보다 1이 크기에 재귀 카운트를 활용
+     */
+    let traverseCount = 0;
 
     const traverse = (
       node: TSENode
     ): { node: TSENode; localOffset: number } | null => {
       for (const child of node.content) {
         if (typeof child === 'string') {
-          const length = child.length;
-          if (accumulatedOffset + length >= offset) {
-            return { node, localOffset: offset - accumulatedOffset };
+          const currentNodeOffsetDiff = node.endOffset - node.startOffset;
+
+          if (
+            accumulatedOffset + currentNodeOffsetDiff >=
+            offset - traverseCount
+          ) {
+            return {
+              node,
+              localOffset: offset - accumulatedOffset - traverseCount,
+            };
           }
-          accumulatedOffset += length;
+
+          accumulatedOffset += currentNodeOffsetDiff;
         } else if (child instanceof TSENode) {
-          const result: { node: TSENode; localOffset: number } | null =
-            traverse(child);
+          const result = traverse(child);
+          //*TODO: content내에 다른 TSENode가 있는 경우 이 방식이 유효한지에 대해서는 추가 고민 필요
+          traverseCount += OFFSET_DELIMITER;
           if (result) return result;
         }
       }

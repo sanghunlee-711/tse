@@ -31,7 +31,7 @@ class EditorView {
     // 상태가 업데이트된 이후 Selection도 업데이트
     this.selection.rootNode = this.state.doc;
     this.selection.updateSelection();
-
+    console.log('new State!!', this.state.doc);
     // DOM 렌더링
     this.render();
   }
@@ -96,7 +96,7 @@ class EditorView {
    * @returns {Transaction} 생성된 트랜잭션
    */
   createInsertTransaction(text: string): Transaction {
-    const { startOffset } = this.selection;
+    const { startOffset, endOffset } = this.selection;
 
     const resolvedPos = this.state.resolvePosition(startOffset);
 
@@ -132,7 +132,8 @@ class EditorView {
    * @returns {Transaction} 생성된 트랜잭션
    */
   createDeleteTransaction(): Transaction {
-    const { startOffset } = this.selection;
+    const { startOffset, endOffset } = this.selection;
+
     const resolvedPos = this.state.resolvePosition(startOffset);
 
     if (!resolvedPos) {
@@ -140,6 +141,7 @@ class EditorView {
     }
 
     const { node, localOffset } = resolvedPos;
+
     const transaction = new Transaction(this.state.schema);
 
     if (node.content.length > 0) {
