@@ -11,6 +11,10 @@ class Selection {
     this.rootNode = rootNode;
   }
 
+  updateRootNode(doc: TSENode) {
+    this.rootNode = doc;
+  }
+
   updateSelection() {
     const selection = window.getSelection();
     if (!selection?.rangeCount) return;

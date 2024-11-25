@@ -35,17 +35,24 @@ if ($rootElement) {
   // 4. EditorView 생성 및 DOM에 렌더링
   const editorView = new EditorView($rootElement, state);
 
+  //트랜잭션은 한번의 액션에 하나가 발생하게 된다!
   // 테스트 트랜잭션: 새로운 paragraph 노드 추가
-  const transaction = new Transaction(schema);
+  const transactionFoo = new Transaction(schema);
 
-  transaction.addNode('paragraph', {}, [
+  transactionFoo.addNode('paragraph', {}, [
     'This is a new paragraph added with Transaction.',
   ]);
-  transaction.addNode('paragraph', {}, ['One More Line With Transaction!@!']);
-  editorView.dispatch(transaction);
+
+  const transactionBar = new Transaction(schema);
+  transactionBar.addNode('paragraph', {}, [
+    'One More Line With Transaction!@!',
+  ]);
+  editorView.dispatch(transactionFoo);
+  editorView.dispatch(transactionBar);
 
   const $consoleButton = document.getElementById('console-button');
   $consoleButton?.addEventListener('click', () => {
-    console.info(editorView.state.toJSON());
+    //TODO: 왜 동기화가 안되는지 알아봐야 할 듯 ..
+    console.info(state.toJSON());
   });
 }

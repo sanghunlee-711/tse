@@ -15,11 +15,27 @@ interface TransactionAttrs {
 class Transaction {
   schema: Schema;
   steps: ((doc: TSENode) => TSENode)[] = []; // 트랜잭션에 적용할 단계 함수 배열
+  changedRange: { from: number; to: number } | null = null; // 변경 범위
 
   constructor(schema: Schema) {
     this.schema = schema;
   }
 
+  /**
+   * 변경 범위를 업데이트합니다.
+   * @param {number} from - 변경 시작 인덱스
+   * @param {number} to - 변경 끝 인덱스
+   */
+  updateChangedRange(from: number, to: number) {
+    if (!this.changedRange) {
+      this.changedRange = { from, to };
+    } else {
+      this.changedRange = {
+        from: Math.min(this.changedRange.from, from),
+        to: Math.max(this.changedRange.to, to),
+      };
+    }
+  }
   // 새로운 노드를 추가하는 단계 설정
   addNode(
     type: string,
@@ -29,6 +45,9 @@ class Transaction {
     const newNode = this.schema.createNode(type, attrs, content);
     this.steps.push((doc) => {
       const newContent = [...doc.content, newNode];
+
+      this.updateChangedRange(doc.content.length, doc.content.length + 1);
+
       return new TSENode(doc.type, doc.attrs, newContent);
     });
     return this;
@@ -49,6 +68,8 @@ class Transaction {
 
         return node;
       });
+
+      this.updateChangedRange(nodeIndex, nodeIndex + 1);
 
       return new TSENode(doc.type, doc.attrs, updatedContent);
     });
@@ -72,6 +93,7 @@ class Transaction {
         return node;
       });
 
+      this.updateChangedRange(nodeIndex, nodeIndex + 1);
       return new TSENode(doc.type, doc.attrs, updatedContent);
     });
 
