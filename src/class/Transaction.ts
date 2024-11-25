@@ -1,3 +1,4 @@
+import EditorState from './EditorState';
 import Schema from './Schema';
 import TSENode, { TSENodeContent } from './TSENode';
 
@@ -13,12 +14,16 @@ interface TransactionAttrs {
 }
 
 class Transaction {
-  schema: Schema;
   steps: ((doc: TSENode) => TSENode)[] = []; // 트랜잭션에 적용할 단계 함수 배열
   changedRange: { from: number; to: number } | null = null; // 변경 범위
+  state: EditorState; //상태에 해당 단계의 Transaction 실행 시 start,endOFfset이 존재한다.
+  startOffset: number | null = null;
+  endOffset: number | null = null;
 
-  constructor(schema: Schema) {
-    this.schema = schema;
+  constructor(state: EditorState) {
+    this.state = state;
+    this.startOffset = this.state.selection.startOffset;
+    this.endOffset = this.state.selection.endOffset;
   }
 
   /**
@@ -36,13 +41,14 @@ class Transaction {
       };
     }
   }
+
   // 새로운 노드를 추가하는 단계 설정
   addNode(
     type: string,
     attrs: TransactionAttrs,
     content: (TSENode | string)[] = []
   ): this {
-    const newNode = this.schema.createNode(type, attrs, content);
+    const newNode = this.state.schema.createNode(type, attrs, content);
     this.steps.push((doc) => {
       const newContent = [...doc.content, newNode];
 

@@ -37,13 +37,13 @@ if ($rootElement) {
 
   //트랜잭션은 한번의 액션에 하나가 발생하게 된다!
   // 테스트 트랜잭션: 새로운 paragraph 노드 추가
-  const transactionFoo = new Transaction(schema);
+  const transactionFoo = new Transaction(state);
 
   transactionFoo.addNode('paragraph', {}, [
     'This is a new paragraph added with Transaction.',
   ]);
 
-  const transactionBar = new Transaction(schema);
+  const transactionBar = new Transaction(state);
   transactionBar.addNode('paragraph', {}, [
     'One More Line With Transaction!@!',
   ]);

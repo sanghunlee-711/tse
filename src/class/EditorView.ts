@@ -24,8 +24,10 @@ class EditorView {
     // const prevState = this.state;
     this.state = newState;
     // 상태가 업데이트된 이후 Selection도 업데이트
+
     this.selection.updateRootNode(this.state.doc);
     this.selection.updateSelection();
+    this.state.selection = this.selection;
     this.syncDOM(transaction);
   }
 
@@ -78,6 +80,46 @@ class EditorView {
         );
       }
     }
+
+    this.updateCarrotPosition(
+      transaction.startOffset || 0,
+      transaction.endOffset || 0
+    );
+  }
+
+  updateCarrotPosition(startOffset: number, endOffset: number) {
+    const selection = window.getSelection();
+    console.log('updateCarrotPos!', startOffset, endOffset);
+    if (!selection || !this.rootElement) {
+      console.warn('Unable to update selection.');
+      return;
+    }
+
+    const range = document.createRange();
+    let accumulatedOffset = 0;
+
+    const traverse = (node: ChildNode): boolean => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const textLength = node.textContent?.length || 0;
+        if (accumulatedOffset + textLength >= startOffset) {
+          const localOffset = startOffset - accumulatedOffset;
+          range.setStart(node, localOffset);
+          range.setEnd(node, localOffset + (endOffset - startOffset));
+          return true;
+        }
+        accumulatedOffset += textLength;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        for (const child of node.childNodes) {
+          if (traverse(child)) return true;
+        }
+      }
+      return false;
+    };
+
+    traverse(this.rootElement);
+
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   /**
@@ -160,7 +202,7 @@ class EditorView {
 
     const { node, localOffset } = resolvedPos;
 
-    const transaction = new Transaction(this.state.schema);
+    const transaction = new Transaction(this.state);
     if (node.content.length > 0) {
       node.content.forEach((eachContent) => {
         if (typeof eachContent === 'string') {
@@ -196,7 +238,7 @@ class EditorView {
 
     const { node, localOffset } = resolvedPos;
 
-    const transaction = new Transaction(this.state.schema);
+    const transaction = new Transaction(this.state);
 
     if (node.content.length > 0) {
       node.content.forEach((eachContent) => {
@@ -222,7 +264,7 @@ class EditorView {
    * @returns {Transaction} Enter키로 인해 생성된 트랜잭션
    */
   createEnterTransaction(): Transaction {
-    const transaction = new Transaction(this.state.schema);
+    const transaction = new Transaction(this.state);
 
     return transaction;
   }
