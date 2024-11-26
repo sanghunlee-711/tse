@@ -73,7 +73,11 @@ class NodeView {
   selectNode() {
     this.selected = true;
     this.dom.classList.add('selected-node');
-    this.dom.style.outline = '2px solid blue';
+    this.dom.style.outline = '1px solid gray';
+
+    setTimeout(() => {
+      this.deselectNode();
+    }, 500);
   }
 
   deselectNode() {

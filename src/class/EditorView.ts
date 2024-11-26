@@ -31,54 +31,60 @@ class EditorView {
     this.syncDOM(transaction);
   }
 
-  syncDOM(transaction: Transaction) {
+  private updateDOM(from: number, to: number) {
+    for (let i = from; i < to; i++) {
+      const node = this.state.doc.content[i];
+      const existingChild = this.rootElement.childNodes[i]; // 기존 DOM 노드
+
+      if (typeof node === 'string') {
+        // 문자열일 경우 텍스트 노드로 처리
+        const textNode = document.createTextNode(node);
+
+        if (existingChild) {
+          // 기존 DOM 노드가 있다면 교체
+          if (existingChild.nodeType === Node.TEXT_NODE) {
+            // 기존 노드가 텍스트 노드라면 내용만 변경
+            existingChild.textContent = node;
+          } else {
+            // 다른 노드라면 교체
+            this.rootElement.replaceChild(textNode, existingChild);
+          }
+        } else {
+          // 기존 DOM 노드가 없으면 새로 추가
+          this.rootElement.appendChild(textNode);
+        }
+      } else if (node instanceof TSENode) {
+        // TSENode일 경우 NodeView 생성 및 추가
+        const nodeView = new NodeView(node);
+
+        if (existingChild) {
+          // 기존 DOM 노드가 있다면 교체
+          this.rootElement.replaceChild(nodeView.dom, existingChild);
+        } else {
+          // 기존 DOM 노드가 없으면 새로 추가
+          this.rootElement.appendChild(nodeView.dom);
+        }
+      }
+    }
+  }
+
+  private removeUselessDOM() {
+    while (this.rootElement.childNodes.length > this.state.doc.content.length) {
+      this.rootElement.removeChild(
+        this.rootElement.childNodes[this.state.doc.content.length]
+      );
+    }
+  }
+
+  private syncDOM(transaction: Transaction) {
     if (transaction.changedRange) {
       const { from, to } = transaction.changedRange;
 
       // 변경된 범위의 DOM 노드를 갱신
-      for (let i = from; i < to; i++) {
-        const node = this.state.doc.content[i];
-        const existingChild = this.rootElement.childNodes[i]; // 기존 DOM 노드
-
-        if (typeof node === 'string') {
-          // 문자열일 경우 텍스트 노드로 처리
-          const textNode = document.createTextNode(node);
-
-          if (existingChild) {
-            // 기존 DOM 노드가 있다면 교체
-            if (existingChild.nodeType === Node.TEXT_NODE) {
-              // 기존 노드가 텍스트 노드라면 내용만 변경
-              existingChild.textContent = node;
-            } else {
-              // 다른 노드라면 교체
-              this.rootElement.replaceChild(textNode, existingChild);
-            }
-          } else {
-            // 기존 DOM 노드가 없으면 새로 추가
-            this.rootElement.appendChild(textNode);
-          }
-        } else if (node instanceof TSENode) {
-          // TSENode일 경우 NodeView 생성 및 추가
-          const nodeView = new NodeView(node);
-
-          if (existingChild) {
-            // 기존 DOM 노드가 있다면 교체
-            this.rootElement.replaceChild(nodeView.dom, existingChild);
-          } else {
-            // 기존 DOM 노드가 없으면 새로 추가
-            this.rootElement.appendChild(nodeView.dom);
-          }
-        }
-      }
+      this.updateDOM(from, to);
 
       // 변경된 범위 이후의 초과된 기존 DOM 노드 제거
-      while (
-        this.rootElement.childNodes.length > this.state.doc.content.length
-      ) {
-        this.rootElement.removeChild(
-          this.rootElement.childNodes[this.state.doc.content.length]
-        );
-      }
+      this.removeUselessDOM();
     }
 
     this.updateCarrotPosition(
@@ -90,6 +96,7 @@ class EditorView {
   updateCarrotPosition(startOffset: number, endOffset: number) {
     const selection = window.getSelection();
     console.log('updateCarrotPos!', startOffset, endOffset);
+
     if (!selection || !this.rootElement) {
       console.warn('Unable to update selection.');
       return;
@@ -98,25 +105,43 @@ class EditorView {
     const range = document.createRange();
     let accumulatedOffset = 0;
 
-    const traverse = (node: ChildNode): boolean => {
+    const traverse = (node: ChildNode, tseNode?: TSENode): boolean => {
       if (node.nodeType === Node.TEXT_NODE) {
         const textLength = node.textContent?.length || 0;
+
         if (accumulatedOffset + textLength >= startOffset) {
           const localOffset = startOffset - accumulatedOffset;
-          range.setStart(node, localOffset);
-          range.setEnd(node, localOffset + (endOffset - startOffset));
+          const start = localOffset,
+            end = localOffset + (endOffset - startOffset);
+
+          range.setStart(node, start + 1);
+          range.setEnd(node, end + 1);
+
           return true;
         }
         accumulatedOffset += textLength;
-      } else if (node.nodeType === Node.ELEMENT_NODE) {
-        for (const child of node.childNodes) {
-          if (traverse(child)) return true;
+      } else if (node.nodeType === Node.ELEMENT_NODE && tseNode) {
+        const tseChildren = tseNode.content;
+
+        for (let i = 0; i < node.childNodes.length; i++) {
+          const child = node.childNodes[i];
+          const tseChild = tseChildren[i];
+          const result = traverse(
+            child,
+            tseChild instanceof TSENode ? tseChild : undefined
+          );
+
+          if (result) return true;
+          /**
+           * @description TSE노드에서는 각 문단이 끝날 때마다 offSet을 하나씩 추가해줘야 한다.
+           */
+          if (tseChild instanceof TSENode) accumulatedOffset += 1;
         }
       }
       return false;
     };
 
-    traverse(this.rootElement);
+    traverse(this.rootElement, this.state.doc);
 
     selection.removeAllRanges();
     selection.addRange(range);
@@ -128,7 +153,6 @@ class EditorView {
    */
   dispatch(transaction: Transaction) {
     const newState = this.state.apply(transaction);
-
     this.udpateState(newState, transaction);
   }
 
