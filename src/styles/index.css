@@ -26,3 +26,7 @@ pre {
   color: pink;
   margin-bottom: 12px;
 }
+
+#tse p {
+  white-space: pre-wrap;
+}
