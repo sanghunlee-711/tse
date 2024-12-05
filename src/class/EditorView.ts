@@ -4,6 +4,7 @@ import NodeView from './NodeView';
 import TSENode from './TSENode';
 import Selection from './Selection';
 
+// * TODO: createEnterTransaction등을 Plugin으로 제공할 수 있도록 추상화 추후에 필요
 class EditorView {
   state: EditorState;
   rootElement: HTMLElement;
@@ -20,11 +21,10 @@ class EditorView {
     this.addEventListeners();
   }
 
-  udpateState(newState: EditorState, transaction: Transaction) {
-    // const prevState = this.state;
+  updateState(newState: EditorState, transaction: Transaction) {
     this.state = newState;
-    // 상태가 업데이트된 이후 Selection도 업데이트
 
+    // 상태가 업데이트된 이후 Selection도 업데이트
     this.selection.updateRootNode(this.state.doc);
     this.selection.updateSelection();
     this.state.selection = this.selection;
@@ -38,6 +38,7 @@ class EditorView {
 
       if (typeof node === 'string') {
         // 문자열일 경우 텍스트 노드로 처리
+
         const textNode = document.createTextNode(node);
 
         if (existingChild) {
@@ -54,8 +55,8 @@ class EditorView {
           this.rootElement.appendChild(textNode);
         }
       } else if (node instanceof TSENode) {
-        // TSENode일 경우 NodeView 생성 및 추가
         const nodeView = new NodeView(node);
+        //*TODO: mergeParagraph를 한다면 .. existingChild를 그냥 대체하는게 아닌 추가 조건이 필요해보임.
 
         if (existingChild) {
           // 기존 DOM 노드가 있다면 교체
@@ -95,7 +96,6 @@ class EditorView {
 
   updateCarrotPosition(startOffset: number, endOffset: number) {
     const selection = window.getSelection();
-    console.log('updateCarrotPos!', startOffset, endOffset);
 
     if (!selection || !this.rootElement) {
       console.warn('Unable to update selection.');
@@ -153,7 +153,7 @@ class EditorView {
    */
   dispatch(transaction: Transaction) {
     const newState = this.state.apply(transaction);
-    this.udpateState(newState, transaction);
+    this.updateState(newState, transaction);
   }
 
   /**
@@ -204,7 +204,8 @@ class EditorView {
     } else if (event.inputType === 'deleteContentBackward') {
       const transaction = this.createDeleteTransaction();
       this.dispatch(transaction);
-    } else if (event.inputType === 'Enter') {
+    } else if (event.inputType === 'insertParagraph') {
+      //enter처리
       const transaction = this.createEnterTransaction();
       this.dispatch(transaction);
     }
@@ -248,11 +249,37 @@ class EditorView {
   }
 
   /**
+   *
+   * @param transaction
+   * @param prevNode
+   * @param currentNode
+   */
+  private mergeParagraphs(
+    transaction: Transaction,
+    prevNode: TSENode,
+    currentNode: TSENode
+  ): Transaction {
+    // 이전 문단의 내용과 현재 문단의 내용을 병합
+    const mergedContent = [
+      ...prevNode.content,
+      ...(typeof currentNode.content === 'string'
+        ? [currentNode.content]
+        : currentNode.content),
+    ];
+    const currentIndex = this.state.doc.content.indexOf(currentNode);
+
+    // 이전 문단 업데이트
+    transaction.updateNodeContents(currentIndex, mergedContent);
+    // transaction.updateNodeContents(currentIndex, []);
+    return transaction;
+  }
+
+  /**
    * 텍스트 삭제 트랜잭션을 생성합니다.
    * @returns {Transaction} 생성된 트랜잭션
    */
   createDeleteTransaction(): Transaction {
-    const { startOffset, endOffset } = this.selection;
+    const { startOffset } = this.selection;
 
     const resolvedPos = this.state.resolvePosition(startOffset);
 
@@ -264,20 +291,37 @@ class EditorView {
 
     const transaction = new Transaction(this.state);
 
-    if (node.content.length > 0) {
-      node.content.forEach((eachContent) => {
-        if (typeof eachContent === 'string') {
-          const updatedEachContent =
-            (eachContent as string).slice(0, localOffset - 1) +
-            (eachContent as string).slice(localOffset);
+    // Offset 수정
+    transaction.modifyTransactionOffset(
+      this.state.selection.startOffset - 2,
+      this.state.selection.endOffset - 2
+    );
 
-          transaction.updateNodeContents(this.state.doc.content.indexOf(node), [
-            updatedEachContent,
-          ]);
-        } else if (typeof eachContent === 'object') {
-          //텍스트가 아닌 다른 노드 타입인 경우 여기서 처리 필요.
-        }
-      });
+    const nodeIndex = this.state.doc.content.indexOf(node);
+
+    if (localOffset === 0 && nodeIndex > 0) {
+      // 현재 노드의 첫 번째 인덱스이며, 이전 문단이 존재하는 경우 병합 처리
+      const prevNode = this.state.doc.content[nodeIndex - 1];
+
+      if (prevNode instanceof TSENode && node instanceof TSENode) {
+        return this.mergeParagraphs(transaction, prevNode, node);
+      }
+    } else {
+      // 일반 삭제 처리
+      if (node.content.length > 0) {
+        node.content.forEach((eachContent) => {
+          if (typeof eachContent === 'string') {
+            const updatedEachContent =
+              (eachContent as string).slice(0, localOffset - 1) +
+              (eachContent as string).slice(localOffset);
+
+            transaction.updateNodeContents(
+              this.state.doc.content.indexOf(node),
+              [updatedEachContent]
+            );
+          }
+        });
+      }
     }
 
     return transaction;
@@ -288,7 +332,53 @@ class EditorView {
    * @returns {Transaction} Enter키로 인해 생성된 트랜잭션
    */
   createEnterTransaction(): Transaction {
+    const { startOffset, endOffset } = this.selection;
+    //엔터키 클릭 시 해당 커서가 위치한 노드의 다음 부분 부터는 새로운 노드를 만들어 현재노드의 다음노드로 넣고
+    //위치한 커서의 다음 내용부터는 다음 노드에 넣어줘야한다.
+    const resolvedPos = this.state.resolvePosition(startOffset);
+    const { node, localOffset } = resolvedPos;
     const transaction = new Transaction(this.state);
+    if (node.content.length) {
+      node.content.forEach((eachContent, idx) => {
+        if (typeof eachContent === 'string') {
+          /**
+           *  base) ProseMirror-inspired editor
+           *
+           *  prev) ProseMirror-inspired
+           * localoffset) number
+           *
+           *  next) editor
+           *
+           * 1. base를 업데이트 침
+           *  ProseMirror-inspired editor ->  ProseMirror-inspired
+           * 2. next를 insert함
+           * editor -> newContent
+           * [a]
+           * [ProseMirror-inspired] -> currNodeIndex
+           * [eidtor] -> currNodeIndex + 1
+           * ...rest
+           */
+
+          const updatedCurrentContent = (eachContent as string).slice(
+            0,
+            localOffset
+          );
+          const nextNodeContent = (eachContent as string).slice(localOffset);
+
+          const currNodeIdx = this.state.doc.content.indexOf(node);
+
+          transaction.updateNodeContents(currNodeIdx, [updatedCurrentContent]);
+
+          //insertNode가 되어야 할 것 같은데 흠..;
+          transaction.addNode(
+            node.type,
+            node.attrs,
+            [nextNodeContent],
+            currNodeIdx
+          );
+        }
+      });
+    }
 
     return transaction;
   }

@@ -42,17 +42,34 @@ class Transaction {
     }
   }
 
+  modifyTransactionOffset(startOffset: number, endOffset: number) {
+    this.startOffset = startOffset;
+    this.endOffset = endOffset;
+  }
+
   // 새로운 노드를 추가하는 단계 설정
   addNode(
     type: string,
     attrs: TransactionAttrs,
-    content: (TSENode | string)[] = []
+    content: (TSENode | string)[] = [],
+    addNodeIndex?: number
   ): this {
     const newNode = this.state.schema.createNode(type, attrs, content);
     this.steps.push((doc) => {
-      const newContent = [...doc.content, newNode];
+      let newContent = doc.content;
 
-      this.updateChangedRange(doc.content.length, doc.content.length + 1);
+      if (addNodeIndex) {
+        const prevContent = doc.content.slice(0, addNodeIndex + 1);
+
+        const nextContent = doc.content.slice(addNodeIndex + 1);
+
+        newContent = [...prevContent, newNode, ...nextContent];
+
+        this.updateChangedRange(doc.content.length, doc.content.length + 1);
+      } else {
+        newContent = [...doc.content, newNode];
+        this.updateChangedRange(doc.content.length, doc.content.length + 1);
+      }
 
       return new TSENode(doc.type, doc.attrs, newContent);
     });
@@ -100,7 +117,10 @@ class Transaction {
       });
 
       this.updateChangedRange(nodeIndex, nodeIndex + 1);
-      return new TSENode(doc.type, doc.attrs, updatedContent);
+
+      const result = new TSENode(doc.type, doc.attrs, updatedContent);
+
+      return result;
     });
 
     return this;

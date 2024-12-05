@@ -26,3 +26,12 @@ pre {
   color: pink;
   margin-bottom: 12px;
 }
+
+#tse p {
+  white-space: pre-wrap;
+}
+
+#tse p:empty::before {
+  content: '\00a0'; /* 공백 문자 추가 */
+  display: inline-block;
+}

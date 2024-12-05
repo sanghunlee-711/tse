@@ -40,7 +40,7 @@ class Selection {
 
     if (this.startOffset === this.endOffset) {
       if (output) {
-        output.innerText = `커서 위치: ${this.startOffset}, 노드 내용: "${nodeContent}", 노드 범위: "${this.matchedNode?.startOffset} ~ ${this.matchedNode?.endOffset}"`;
+        output.innerText = `커서 위치: ${this.startOffset}, \n 노드 내용: "${nodeContent}", \n 노드 범위: "${this.matchedNode?.startOffset} ~ ${this.matchedNode?.endOffset}"\n 현재 노드 컨텐츠: ${JSON.stringify(this.rootNode.content, null, 2)}`;
       }
     } else {
       if (output) {

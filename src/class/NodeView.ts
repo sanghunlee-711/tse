@@ -46,7 +46,13 @@ class NodeView {
 
   // DOM의 콘텐츠를 업데이트하는 메서드
   private updateContent(element: HTMLElement) {
-    element.textContent = this.node.content.join('');
+    this.node.content.forEach((eachContent) => {
+      if (typeof eachContent === 'string') {
+        element.innerHTML += eachContent;
+      } else {
+        //여긴 추후 이미지 할 때 고려..
+      }
+    });
   }
 
   // 노드가 업데이트될 때 DOM을 갱신하는 메서드

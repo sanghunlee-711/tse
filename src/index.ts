@@ -47,12 +47,10 @@ if ($rootElement) {
   transactionBar.addNode('paragraph', {}, [
     'One More Line With Transaction!@!',
   ]);
-  editorView.dispatch(transactionFoo);
-  editorView.dispatch(transactionBar);
 
-  const $consoleButton = document.getElementById('console-button');
-  $consoleButton?.addEventListener('click', () => {
-    //TODO: 왜 동기화가 안되는지 알아봐야 할 듯 ..
-    console.info(state.toJSON());
-  });
+  const transactionZoo = new Transaction(state);
+  transactionZoo.addNode('paragraph', {}, ['']);
+  editorView.dispatch(transactionFoo);
+  editorView.dispatch(transactionZoo);
+  editorView.dispatch(transactionBar);
 }
