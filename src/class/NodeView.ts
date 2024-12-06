@@ -20,6 +20,8 @@ class NodeView {
       element = document.createElement('p');
     } else if (this.node.type === 'heading') {
       element = document.createElement(`h${this.node.attrs.level || 1}`);
+    } else if (this.node.type === 'bold') {
+      element = document.createElement(`b`);
     } else {
       element = document.createElement('div');
     }
@@ -48,9 +50,12 @@ class NodeView {
   private updateContent(element: HTMLElement) {
     this.node.content.forEach((eachContent) => {
       if (typeof eachContent === 'string') {
-        element.innerHTML += eachContent;
-      } else {
-        //여긴 추후 이미지 할 때 고려..
+        //문자열인 경우 텍스트로 추가
+        // element.innerHTML += eachContent;
+        element.appendChild(document.createTextNode(eachContent));
+      } else if (eachContent instanceof TSENode) {
+        const childNodeView = new NodeView(eachContent);
+        element.appendChild(childNodeView.dom);
       }
     });
   }

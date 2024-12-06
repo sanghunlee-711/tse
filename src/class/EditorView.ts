@@ -94,6 +94,16 @@ class EditorView {
     );
   }
 
+  /**
+   * [x] 새로운 글자를 타이핑 하는 경우, 캐럿 위치는 글자가 주입된 다음에 위치해야 한다.
+   * [x] 기존의 글자를 지우는 경우, 캐럿 위치는 글자가 주입된 이전에 위치애햐 한다.
+   * [ ] 노드의 마지막에서 엔터가 된 경우, 새로운  문단의 첫번째 위치에 캐럿이 위치 해야한다.
+   * [ ] 노드의 중간 위치에서 엔터가 된 경우, 새로운 문단의 첫번째 위치에 캐럿이 위치 해야한다.
+   * [ ] 노드의 첫번째 위치에서 backSpace가 된 경우 이전 노드의 마지막에 캐럿이 위치 해야한다.
+   * @param startOffset
+   * @param endOffset
+   * @returns
+   */
   updateCarrotPosition(startOffset: number, endOffset: number) {
     const selection = window.getSelection();
 
@@ -341,24 +351,6 @@ class EditorView {
     if (node.content.length) {
       node.content.forEach((eachContent, idx) => {
         if (typeof eachContent === 'string') {
-          /**
-           *  base) ProseMirror-inspired editor
-           *
-           *  prev) ProseMirror-inspired
-           * localoffset) number
-           *
-           *  next) editor
-           *
-           * 1. base를 업데이트 침
-           *  ProseMirror-inspired editor ->  ProseMirror-inspired
-           * 2. next를 insert함
-           * editor -> newContent
-           * [a]
-           * [ProseMirror-inspired] -> currNodeIndex
-           * [eidtor] -> currNodeIndex + 1
-           * ...rest
-           */
-
           const updatedCurrentContent = (eachContent as string).slice(
             0,
             localOffset
@@ -369,7 +361,6 @@ class EditorView {
 
           transaction.updateNodeContents(currNodeIdx, [updatedCurrentContent]);
 
-          //insertNode가 되어야 할 것 같은데 흠..;
           transaction.addNode(
             node.type,
             node.attrs,

@@ -24,8 +24,12 @@ if ($rootElement) {
       id: 'test',
     },
     [
-      new TSENode('paragraph', {}, ['Hello, World!'], 0),
-      new TSENode('paragraph', {}, ['ProseMirror-inspired editor'], 13),
+      new TSENode('paragraph', {}, ['Hello, World!']),
+      new TSENode('paragraph', {}, ['ProseMirror-inspired editor']),
+      new TSENode('paragraph', {}, [
+        new TSENode('bold', {}, ['Bold Text']),
+        ' and more text',
+      ]),
     ]
   );
   const selection = new Selection(doc);

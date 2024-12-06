@@ -35,3 +35,7 @@ pre {
   content: '\00a0'; /* 공백 문자 추가 */
   display: inline-block;
 }
+
+#tse b {
+  font-weight: bold;
+}
