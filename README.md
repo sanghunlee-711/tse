@@ -17,3 +17,9 @@
 - [x] Delete text
 - [ ] merge Node with Back Button
 - [ ] Divide Node with Enter Button
+
+# EXPLANATIONS
+
+- Every block is based on `paragraph`
+- It should be wrapped `paragraph` IF one line is only wrotten as `bold`
+- It should be wrapped `paragraph` IF one line has only a `image`

@@ -27,6 +27,7 @@ if ($rootElement) {
       new TSENode('paragraph', {}, ['Hello, World!']),
       new TSENode('paragraph', {}, ['ProseMirror-inspired editor']),
       new TSENode('paragraph', {}, [
+        'Some Text is Start and ',
         new TSENode('bold', {}, ['Bold Text']),
         ' and more text',
       ]),

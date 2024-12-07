@@ -78,38 +78,34 @@ class TSENode {
   }
 
   /**
-   * 전체 노드 계층 구조에서 오프셋을 재계산합니다.
+   * @descriptions 전체 노드 계층 구조에서 오프셋을 재계산합니다.
    */
   recalculateOffsets() {
-    let currentOffset = this.startOffset;
+    let currOffset = this.startOffset;
 
-    const updateOffsets = (node: TSENode) => {
-      // 현재 노드의 startOffset 재설정
-      node.startOffset = currentOffset;
+    const dfs = (node: TSENode) => {
+      //시작 오프셋 갱신
+      node.startOffset = currOffset;
 
-      // 현재 노드의 endOffset 계산
-      if (typeof node.content === 'string') {
-        node.endOffset = node.startOffset + (node.content as string).length;
-      } else if (Array.isArray(node.content)) {
-        node.endOffset = node.startOffset;
-        node.content.forEach((child) => {
-          if (child instanceof TSENode) {
-            updateOffsets(child); // 자식 노드의 오프셋 갱신
-            node.endOffset = child.endOffset; // 마지막 자식 노드의 종료 오프셋을 반영
-          } else if (typeof child === 'string') {
-            node.endOffset += child.length;
-          }
-        });
+      node.content.forEach((content) => {
+        if (typeof content === 'string') {
+          currOffset += content.length;
+        } else if (content instanceof TSENode) {
+          dfs(content);
+        }
+      });
+
+      //현 컨텐츠 길이 계산 후 offSet갱신
+      node.endOffset = currOffset;
+
+      if (node.type === 'paragraph') {
+        currOffset += OFFSET_DELIMITER;
       }
-
-      // 다음 노드의 시작 오프셋 계산
-      currentOffset = node.endOffset + OFFSET_DELIMITER;
     };
 
-    updateOffsets(this); // 루트 노드부터 갱신 시작
+    dfs(this);
   }
 
-  // JSON 직렬화 기능
   toJSON(): any {
     return {
       type: this.type,

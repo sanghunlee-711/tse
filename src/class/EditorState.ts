@@ -22,6 +22,7 @@ class EditorState {
 
   apply(transaction: Transaction): EditorState {
     let updatedDoc = this.doc;
+
     transaction.steps.forEach((step) => {
       updatedDoc = step(updatedDoc);
     });
