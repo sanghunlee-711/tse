@@ -60,7 +60,7 @@ class EditorState {
           }
 
           accumulatedOffset += currentNodeOffsetDiff;
-        } else if (child instanceof TSENode) {
+        } else if (child instanceof TSENode && child.type === 'paragraph') {
           const result = traverse(child);
           //*TODO: content내에 다른 TSENode가 있는 경우 이 방식이 유효한지에 대해서는 추가 고민 필요
           traverseCount += OFFSET_DELIMITER;

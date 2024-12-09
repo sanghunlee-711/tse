@@ -3,6 +3,7 @@ import Transaction from './Transaction';
 import NodeView from './NodeView';
 import TSENode from './TSENode';
 import Selection from './Selection';
+import { updateContent } from '@src/utils/offset';
 
 // * TODO: createEnterTransaction등을 Plugin으로 제공할 수 있도록 추상화 추후에 필요
 class EditorView {
@@ -88,6 +89,11 @@ class EditorView {
       this.removeUselessDOM();
     }
 
+    /**
+     * @descriptions 해당 DOM Node가 rerender될 때 캐럿의 포인트를 적절하게 유지하기 위함.
+     *
+     **/
+
     this.updateCarrotPosition(
       transaction.startOffset || 0,
       transaction.endOffset || 0
@@ -95,6 +101,7 @@ class EditorView {
   }
 
   /**
+   * @descriptions DOM Node가 rerender될 때 현재 캐럿 및 Selection의 위치를 적절하게 유지하기 위한 메서드.
    * [x] 새로운 글자를 타이핑 하는 경우, 캐럿 위치는 글자가 주입된 다음에 위치해야 한다.
    * [x] 기존의 글자를 지우는 경우, 캐럿 위치는 글자가 주입된 이전에 위치애햐 한다.
    * [ ] 노드의 마지막에서 엔터가 된 경우, 새로운  문단의 첫번째 위치에 캐럿이 위치 해야한다.
@@ -236,24 +243,32 @@ class EditorView {
     }
 
     const { node, localOffset } = resolvedPos;
-
+    console.log({ node, localOffset, startOffset, endOffset });
     const transaction = new Transaction(this.state);
-    if (node.content.length > 0) {
-      node.content.forEach((eachContent) => {
-        if (typeof eachContent === 'string') {
-          const updatedEachContent =
-            (eachContent as string).slice(0, localOffset) +
-            text +
-            (eachContent as string).slice(localOffset);
 
-          transaction.updateNodeContents(this.state.doc.content.indexOf(node), [
-            updatedEachContent,
-          ]);
-        } else if (typeof eachContent === 'object') {
-          //텍스트가 아닌 다른 노드 타입인 경우 여기서 처리 필요.
-        }
-      });
-    }
+    // if (!node.content.length) return transaction;
+
+    // node.content.forEach((eachContent) => {
+    //   console.log({ eachContent });
+    //   if (typeof eachContent === 'string') {
+    //     const updatedEachContent =
+    //       (eachContent as string).slice(0, localOffset) +
+    //       text +
+    //       (eachContent as string).slice(localOffset);
+
+    //     transaction.updateNodeContents(this.state.doc.content.indexOf(node), [
+    //       updatedEachContent,
+    //     ]);
+    //   } else if (typeof eachContent === 'object') {
+    //     //텍스트가 아닌 다른 노드 타입인 경우 여기서 처리 필요.
+    //   }
+    // });
+
+    const updatedContent = updateContent(node.content, localOffset, text);
+    transaction.updateNodeContents(
+      this.state.doc.content.indexOf(node),
+      updatedContent
+    );
 
     return transaction;
   }

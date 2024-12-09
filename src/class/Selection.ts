@@ -23,7 +23,7 @@ class Selection {
       range.startContainer,
       range.startOffset
     );
-    console.log(startOffsetResult);
+
     this.startOffset = startOffsetResult;
 
     this.endOffset = calculateAbsoluteOffsetFromDOM(
