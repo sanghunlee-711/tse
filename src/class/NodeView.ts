@@ -22,6 +22,8 @@ class NodeView {
       element = document.createElement(`h${this.node.attrs.level || 1}`);
     } else if (this.node.type === 'bold') {
       element = document.createElement(`b`);
+    } else if (this.node.type === 'italic') {
+      element = document.createElement(`i`);
     } else {
       element = document.createElement('div');
     }

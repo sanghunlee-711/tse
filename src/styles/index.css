@@ -39,3 +39,9 @@ pre {
 #tse b {
   font-weight: bold;
 }
+#tse i {
+  font-style: italic;
+  /*아래는 분별을 쉽게하기 위해 임시 처리*/
+  font-weight: bold;
+  color: violet;
+}

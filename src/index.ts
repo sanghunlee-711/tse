@@ -50,7 +50,9 @@ if ($rootElement) {
 
   const transactionBar = new Transaction(state);
   transactionBar.addNode('paragraph', {}, [
-    'One More Line With Transaction!@!',
+    'Some Text is Start and ',
+    new TSENode('italic', {}, ['Italic Text']),
+    ' and more text',
   ]);
 
   const transactionZoo = new Transaction(state);
