@@ -138,20 +138,19 @@ class EditorState {
     return result;
   }
 
-  getWindowOffsetFrom(stateStartOffset: number, stateEndOffset: number) {
+  getWindowOffsetFrom(
+    stateStartOffset: number,
+    stateEndOffset: number
+  ): { windowStartOffset: number; windowEndOffset: number } {
+    console.log('getWindowOffsetFrom', { stateStartOffset, stateEndOffset });
     this.validateRange(stateStartOffset, stateEndOffset);
 
     let accumulatedOffset = 0;
-    let paragraphCount = 0;
 
     const dfs = (
       node: TSENode,
       offset: number
-    ): {
-      windowStartOffset: number;
-      windowEndOffset: number;
-    } | null => {
-      //base case
+    ): { windowStartOffset: number; windowEndOffset: number } | null => {
       if (
         node.startOffset <= stateStartOffset &&
         node.endOffset >= stateEndOffset
@@ -162,43 +161,33 @@ class EditorState {
         for (let i = 0; i < contents.length; i++) {
           const content = contents[i];
 
-          //문자열인 경우 현재 offset을 계산해본다.
           if (typeof content === 'string') {
             const contentLength = content.length;
 
-            // 범위가 현재 문자열 내에 포함되는 경우
             if (
-              currOffset + contentLength > stateStartOffset &&
+              currOffset + contentLength >= stateStartOffset &&
               currOffset <= stateEndOffset
             ) {
               return {
-                windowStartOffset:
-                  stateStartOffset - currOffset - paragraphCount,
-                windowEndOffset: stateEndOffset - currOffset - paragraphCount,
+                windowStartOffset: stateStartOffset - currOffset,
+                windowEndOffset: stateEndOffset - currOffset,
               };
             }
-
             currOffset += contentLength;
           } else if (content instanceof TSENode) {
             const found = dfs(content, currOffset);
-
-            //첫번째 문단은 +1이 되지 않으므로 재귀 다음 코드 위치함.
-            if (content.type === 'paragraph') {
-              //stateOffset에서는 paragraph별로 offset의 카운트를 하나씩 올려주기에 대응ㄴ
-              paragraphCount += 1;
-            }
             if (found) return found;
 
-            // 현재 TSENode의 범위를 누적
             currOffset += content.endOffset - content.startOffset;
           }
         }
       }
-
       return null;
     };
 
     const result = dfs(this.doc, accumulatedOffset);
+    console.log({ result });
+
     if (!result) throw new Error('범위를 벗어난 offset입니다.');
 
     return result;

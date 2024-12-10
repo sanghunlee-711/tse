@@ -1,3 +1,4 @@
+import { OFFSET_DELIMITER } from '@src/constants/delimiter';
 import EditorState from './EditorState';
 import Schema from './Schema';
 import TSENode, { TSENodeContent } from './TSENode';
@@ -107,11 +108,14 @@ class Transaction {
     return this;
   }
 
-  // 특정 노드의 속성을 업데이트하는 단계 설정
-  updateNodeContents(nodeIndex: number, newContents: TSENodeContent[]): this {
+  updateNodeContents(
+    changedNode: TSENode,
+    newContents: TSENodeContent[]
+  ): this {
     this.steps.push((doc) => {
-      const updatedContent = doc.content.map((node, index) => {
-        if (index === nodeIndex && node instanceof TSENode) {
+      const updateContentRecursively = (node: TSENode): TSENode => {
+        // 현재 노드가 변경 대상 노드인 경우 업데이트
+        if (node === changedNode) {
           return new TSENode(
             node.type,
             node.attrs,
@@ -120,14 +124,44 @@ class Transaction {
           );
         }
 
-        return node;
-      });
+        // 현재 노드가 아닌 경우 하위 content를 재귀적으로 탐색
+        const updatedContent = node.content.map((content) => {
+          if (content instanceof TSENode) {
+            return updateContentRecursively(content);
+          }
+          return content; // 문자열인 경우 그대로 유지
+        });
 
-      this.updateChangedRange(nodeIndex, nodeIndex + 1);
+        // 업데이트된 content로 새로운 노드 생성
+        return new TSENode(
+          node.type,
+          node.attrs,
+          updatedContent,
+          node.startOffset
+        );
+      };
 
-      const result = new TSENode(doc.type, doc.attrs, updatedContent);
+      // 루트 노드에서 재귀적으로 탐색 시작
+      const updatedDoc = updateContentRecursively(doc);
 
-      return result;
+      // 변경된 노드의 범위를 다시 계산
+      const changedNodeStart = changedNode.startOffset;
+      const changedNodeEnd =
+        changedNode.startOffset +
+        newContents.reduce((len, content) => {
+          if (typeof content === 'string') {
+            return len + content.length;
+          } else if (content instanceof TSENode) {
+            return (
+              len + content.endOffset - content.startOffset + OFFSET_DELIMITER
+            );
+          }
+          return len;
+        }, 0);
+
+      this.updateChangedRange(changedNodeStart, changedNodeEnd);
+
+      return updatedDoc;
     });
 
     return this;

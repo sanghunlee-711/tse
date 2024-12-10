@@ -1,9 +1,8 @@
 import EditorState from './EditorState';
 import Transaction from './Transaction';
 import NodeView from './NodeView';
-import TSENode from './TSENode';
+import TSENode, { TSENodeContent } from './TSENode';
 import Selection from './Selection';
-import { updateContent } from '@src/utils/offset';
 
 // * TODO: createEnterTransaction등을 Plugin으로 제공할 수 있도록 추상화 추후에 필요
 class EditorView {
@@ -186,7 +185,7 @@ class EditorView {
   handleInput(event: InputEvent) {
     if (event.inputType === 'insertText') {
       const insertedText = event.data || '';
-      const transaction = this.createInsertTransaction(insertedText);
+      const transaction = this.createInsertTextTransaction(insertedText);
       this.dispatch(transaction);
     } else if (event.inputType === 'deleteContentBackward') {
       const transaction = this.createDeleteTransaction();
@@ -203,25 +202,33 @@ class EditorView {
    * @param {string} text - 삽입할 텍스트
    * @returns {Transaction} 생성된 트랜잭션
    */
-  createInsertTransaction(text: string): Transaction {
+  createInsertTextTransaction(text: string): Transaction {
     const { startOffset, endOffset } = this.selection;
     const node = this.state.getNodeFrom(startOffset, endOffset);
-    const localOffset = this.state.getWindowOffsetFrom(startOffset, endOffset);
 
-    // const resolvedPos = this.state.resolvePosition(startOffset);
-
-    console.log({ node, localOffset, startOffset, endOffset });
+    const { windowStartOffset, windowEndOffset } =
+      this.state.getWindowOffsetFrom(startOffset, endOffset);
+    console.log('createInsert!!', windowStartOffset, windowEndOffset);
     const transaction = new Transaction(this.state);
+    const currentContent = node.content[0] as string;
 
-    const updatedContent = updateContent(
-      node.content,
-      localOffset.windowStartOffset,
-      text
-    );
-    transaction.updateNodeContents(
-      this.state.doc.content.indexOf(node),
-      updatedContent
-    );
+    const updatedContent = [
+      currentContent.slice(0, windowStartOffset) +
+        text +
+        currentContent.slice(windowEndOffset),
+    ];
+
+    console.log({
+      node,
+      windowStartOffset,
+      windowEndOffset,
+      startOffset,
+      endOffset,
+      currentContent,
+      updatedContent,
+    });
+
+    transaction.updateNodeContents(node, updatedContent);
 
     return transaction;
   }
@@ -244,11 +251,10 @@ class EditorView {
         ? [currentNode.content]
         : currentNode.content),
     ];
-    const currentIndex = this.state.doc.content.indexOf(currentNode);
 
     // 이전 문단 업데이트
-    transaction.updateNodeContents(currentIndex, mergedContent);
-    // transaction.updateNodeContents(currentIndex, []);
+    transaction.updateNodeContents(currentNode, mergedContent);
+
     return transaction;
   }
 
@@ -288,10 +294,7 @@ class EditorView {
                 localOffset.windowStartOffset - 1
               ) + (eachContent as string).slice(localOffset.windowEndOffset);
 
-            transaction.updateNodeContents(
-              this.state.doc.content.indexOf(node),
-              [updatedEachContent]
-            );
+            transaction.updateNodeContents(node, [updatedEachContent]);
           }
         });
       }
@@ -312,6 +315,7 @@ class EditorView {
     const localOffset = this.state.getWindowOffsetFrom(startOffset, endOffset);
 
     const transaction = new Transaction(this.state);
+
     if (node.content.length) {
       node.content.forEach((eachContent, idx) => {
         if (typeof eachContent === 'string') {
@@ -325,7 +329,7 @@ class EditorView {
 
           const currNodeIdx = this.state.doc.content.indexOf(node);
 
-          transaction.updateNodeContents(currNodeIdx, [updatedCurrentContent]);
+          transaction.updateNodeContents(node, [updatedCurrentContent]);
 
           transaction.addNode(
             node.type,
