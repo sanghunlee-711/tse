@@ -35,43 +35,171 @@ class EditorState {
     );
   }
 
-  resolvePosition(offset: number) {
+  private validateRange(stateStartOffset: number, stateEndOffset: number) {
+    if (
+      stateStartOffset < this.doc.startOffset ||
+      stateEndOffset > this.doc.endOffset
+    ) {
+      throw new Error(
+        `범위에 맞지 않은 노드 탐색입니다, ${this.doc.type}, ${stateStartOffset} ${stateEndOffset}`
+      );
+    }
+  }
+
+  getNodeFrom(stateStartOffset: number, stateEndOffset: number) {
+    this.validateRange(stateStartOffset, stateEndOffset);
+
+    const dfs = (node: TSENode): TSENode | null => {
+      //base case
+      if (
+        node.startOffset <= stateStartOffset &&
+        node.endOffset >= stateEndOffset
+      ) {
+        const contents = node.content;
+
+        for (let i = 0; i < contents.length; i++) {
+          const content = contents[i];
+
+          //현재 컨텐츠가 TSENode인 경우 계속 탐색을 이어간다.
+          if (content instanceof TSENode) {
+            const foundNodeAndOffset = dfs(content);
+            if (foundNodeAndOffset) return foundNodeAndOffset;
+          }
+        }
+
+        //TSENode에 해당하지 않는 경우 현재 컨텐츠를 가진 노드를 반환한다.
+        return node;
+      }
+
+      return null;
+    };
+    const result = dfs(this.doc);
+    if (!result)
+      throw new Error('TSENode찾기에 실패하였습니다. 범위를 확인해주세요');
+    return result;
+  }
+
+  getWindowNodeFrom(
+    stateStartOffset: number,
+    stateEndOffset: number,
+    rootElement: HTMLElement
+  ): Node {
     let accumulatedOffset = 0;
-    /**
-     * @description 문단을 넘어가면 traverse를 할 때마다 다음 노드의 첫번째 offset이 이전 노드의 마지막 offset보다 1이 크기에 재귀 카운트를 활용
-     */
-    let traverseCount = 0;
 
     const traverse = (
-      node: TSENode
-    ): { node: TSENode; localOffset: number } | null => {
-      for (const child of node.content) {
-        if (typeof child === 'string') {
-          const currentNodeOffsetDiff = node.endOffset - node.startOffset;
+      windowNode: ChildNode,
+      tseNode?: TSENode
+    ): Node | null => {
+      if (windowNode.nodeType === Node.TEXT_NODE) {
+        const textLength = windowNode.textContent?.length || 0;
 
-          if (
-            accumulatedOffset + currentNodeOffsetDiff >=
-            offset - traverseCount
-          ) {
-            return {
-              node,
-              localOffset: offset - accumulatedOffset - traverseCount,
-            };
-          }
+        if (
+          accumulatedOffset + textLength > stateStartOffset &&
+          accumulatedOffset <= stateEndOffset
+        ) {
+          const localStart = Math.max(stateStartOffset - accumulatedOffset, 0);
+          const localEnd = Math.min(
+            stateEndOffset - accumulatedOffset,
+            textLength
+          );
 
-          accumulatedOffset += currentNodeOffsetDiff;
-        } else if (child instanceof TSENode && child.type === 'paragraph') {
-          const result = traverse(child);
-          //*TODO: content내에 다른 TSENode가 있는 경우 이 방식이 유효한지에 대해서는 추가 고민 필요
-          traverseCount += OFFSET_DELIMITER;
+          return windowNode;
+        }
+
+        accumulatedOffset += textLength;
+      } else if (windowNode.nodeType === Node.ELEMENT_NODE && tseNode) {
+        const tseChildren = tseNode.content;
+
+        for (let i = 0; i < windowNode.childNodes.length; i++) {
+          const windowChildNode = windowNode.childNodes[i];
+          const tseChild = tseChildren[i];
+
+          const result = traverse(
+            windowChildNode,
+            tseChild instanceof TSENode ? tseChild : undefined
+          );
+
           if (result) return result;
+
+          /**
+           * @description TSE노드에서는 각 문단이 끝날 때마다 offSet을 하나씩 추가해줘야 한다.
+           */
+          if (tseChild instanceof TSENode)
+            accumulatedOffset += OFFSET_DELIMITER;
         }
       }
       return null;
     };
 
-    const result = traverse(this.doc);
-    if (!result) throw new Error('Offset out of bounds');
+    const result = traverse(rootElement, this.doc);
+    if (!result)
+      throw new Error('실제 DOM에서 찾을 수 없는 offset범위 입니다.');
+
+    return result;
+  }
+
+  getWindowOffsetFrom(stateStartOffset: number, stateEndOffset: number) {
+    this.validateRange(stateStartOffset, stateEndOffset);
+
+    let accumulatedOffset = 0;
+    let paragraphCount = 0;
+
+    const dfs = (
+      node: TSENode,
+      offset: number
+    ): {
+      windowStartOffset: number;
+      windowEndOffset: number;
+    } | null => {
+      //base case
+      if (
+        node.startOffset <= stateStartOffset &&
+        node.endOffset >= stateEndOffset
+      ) {
+        let currOffset = offset; // 현재 노드에서의 누적 오프셋
+        const contents = node.content;
+
+        for (let i = 0; i < contents.length; i++) {
+          const content = contents[i];
+
+          //문자열인 경우 현재 offset을 계산해본다.
+          if (typeof content === 'string') {
+            const contentLength = content.length;
+
+            // 범위가 현재 문자열 내에 포함되는 경우
+            if (
+              currOffset + contentLength > stateStartOffset &&
+              currOffset <= stateEndOffset
+            ) {
+              return {
+                windowStartOffset:
+                  stateStartOffset - currOffset - paragraphCount,
+                windowEndOffset: stateEndOffset - currOffset - paragraphCount,
+              };
+            }
+
+            currOffset += contentLength;
+          } else if (content instanceof TSENode) {
+            const found = dfs(content, currOffset);
+
+            //첫번째 문단은 +1이 되지 않으므로 재귀 다음 코드 위치함.
+            if (content.type === 'paragraph') {
+              //stateOffset에서는 paragraph별로 offset의 카운트를 하나씩 올려주기에 대응ㄴ
+              paragraphCount += 1;
+            }
+            if (found) return found;
+
+            // 현재 TSENode의 범위를 누적
+            currOffset += content.endOffset - content.startOffset;
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const result = dfs(this.doc, accumulatedOffset);
+    if (!result) throw new Error('범위를 벗어난 offset입니다.');
 
     return result;
   }
