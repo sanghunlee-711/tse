@@ -47,7 +47,14 @@ class Transaction {
     this.endOffset = endOffset;
   }
 
-  // 새로운 노드를 추가하는 단계 설정
+  /**
+   *
+   * @param type 노드 타입
+   * @param attrs 노드 속성 eg. id, class
+   * @param content 노드가 가질 컨텐츠 ['contents', 'foo', 'bar']
+   * @param addNodeIndex 인덱스가 있는 경우 해당 위치에 노드를 끼워넣는다.
+   * @returns Transaction
+   */
   addNode(
     type: string,
     attrs: TransactionAttrs,
