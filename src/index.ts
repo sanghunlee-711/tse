@@ -24,8 +24,13 @@ if ($rootElement) {
       id: 'test',
     },
     [
-      new TSENode('paragraph', {}, ['Hello, World!'], 0),
-      new TSENode('paragraph', {}, ['ProseMirror-inspired editor'], 13),
+      new TSENode('paragraph', {}, ['Hello, World!']),
+      new TSENode('paragraph', {}, ['ProseMirror-inspired editor']),
+      new TSENode('paragraph', {}, [
+        'Some Text is Start and ',
+        new TSENode('bold', {}, ['Bold Text']),
+        ' and more text',
+      ]),
     ]
   );
   const selection = new Selection(doc);
@@ -45,7 +50,9 @@ if ($rootElement) {
 
   const transactionBar = new Transaction(state);
   transactionBar.addNode('paragraph', {}, [
-    'One More Line With Transaction!@!',
+    'Some Text is Start and ',
+    new TSENode('italic', {}, ['Italic Text']),
+    ' and more text',
   ]);
 
   const transactionZoo = new Transaction(state);

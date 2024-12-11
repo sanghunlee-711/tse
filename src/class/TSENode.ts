@@ -34,26 +34,6 @@ class TSENode {
     );
   }
 
-  // DOM 표현 정의 (예: 노드 타입에 따라 <p>, <h1> 등으로 표현)
-  toDOM(): (string | TSENodeAttributes | (string | TSENodeAttributes)[])[] {
-    const childDOMs = this.content
-      .map((child) => {
-        if (TSENode.isTSENode(child)) {
-          const domRepresentation = child.toDOM();
-          return domRepresentation.length > 0 ? domRepresentation : null;
-        }
-        return typeof child === 'string' ? child : null;
-      })
-      .filter((child) => child !== null); // null 값 필터링
-
-    if (this.type === 'paragraph') {
-      return ['p', this.attrs, ...childDOMs];
-    } else if (this.type === 'heading') {
-      return ['h' + this.attrs.level, this.attrs, ...childDOMs];
-    }
-    return ['div', this.attrs, ...childDOMs];
-  }
-
   /**
    * 노드의 종료 오프셋을 계산합니다.
    * @returns {number} 종료 오프셋
@@ -65,6 +45,7 @@ class TSENode {
 
     if (Array.isArray(this.content)) {
       let endOffset = this.startOffset;
+
       this.content.forEach((child) => {
         if (child instanceof TSENode) {
           endOffset = Math.max(endOffset, child.calculateEndOffset());
@@ -78,38 +59,36 @@ class TSENode {
   }
 
   /**
-   * 전체 노드 계층 구조에서 오프셋을 재계산합니다.
+   * @descriptions 전체 노드 계층 구조에서 오프셋을 재계산합니다.
    */
   recalculateOffsets() {
-    let currentOffset = this.startOffset;
+    const dfs = (node: TSENode, prevEndOffset: number): number => {
+      node.startOffset = prevEndOffset;
+      let currentOffset = prevEndOffset;
 
-    const updateOffsets = (node: TSENode) => {
-      // 현재 노드의 startOffset 재설정
-      node.startOffset = currentOffset;
-
-      // 현재 노드의 endOffset 계산
-      if (typeof node.content === 'string') {
-        node.endOffset = node.startOffset + (node.content as string).length;
-      } else if (Array.isArray(node.content)) {
-        node.endOffset = node.startOffset;
-        node.content.forEach((child) => {
-          if (child instanceof TSENode) {
-            updateOffsets(child); // 자식 노드의 오프셋 갱신
-            node.endOffset = child.endOffset; // 마지막 자식 노드의 종료 오프셋을 반영
-          } else if (typeof child === 'string') {
-            node.endOffset += child.length;
-          }
-        });
+      for (const content of node.content) {
+        if (typeof content === 'string') {
+          // 문자열 길이를 즉시 currentOffset에 더해줌
+          currentOffset += content.length;
+        } else if (content instanceof TSENode) {
+          // 자식 노드를 재귀 처리한 후 반환값으로 currentOffset 갱신
+          currentOffset = dfs(content, currentOffset);
+        }
       }
 
-      // 다음 노드의 시작 오프셋 계산
-      currentOffset = node.endOffset + OFFSET_DELIMITER;
+      node.endOffset = currentOffset;
+
+      // 문단 타입이면 OFFSET_DELIMITER 추가
+      if (node.type === 'paragraph') {
+        currentOffset += OFFSET_DELIMITER;
+      }
+
+      return currentOffset;
     };
 
-    updateOffsets(this); // 루트 노드부터 갱신 시작
+    dfs(this, 0);
   }
 
-  // JSON 직렬화 기능
   toJSON(): any {
     return {
       type: this.type,
@@ -126,50 +105,6 @@ class TSENode {
     content: TSENodeContent[] = this.content
   ): TSENode {
     return new TSENode(this.type, attrs || this.attrs, content);
-  }
-
-  /**
-   * 두 노드를 비교하여 변경된 부분을 반환하는 메서드
-   * @param otherNode - 비교 대상 노드
-   * @returns 변경된 부분의 리스트
-   */
-  diff(otherNode: TSENode): Array<{ node: TSENode; changeType: string }> {
-    const changes: Array<{ node: TSENode; changeType: string }> = [];
-
-    // 타입이 다르면 전체 노드를 변경으로 간주
-    if (this.type !== otherNode.type) {
-      changes.push({ node: otherNode, changeType: 'type' });
-      return changes;
-    }
-
-    // 속성 차이 확인
-    const attrChanges = Object.entries(this.attrs).some(
-      ([key, value]) => otherNode.attrs[key] !== value
-    );
-    if (attrChanges) {
-      changes.push({ node: otherNode, changeType: 'attributes' });
-    }
-
-    // 내용 차이 확인 (길이나 각 요소 비교)
-    if (this.content.length !== otherNode.content.length) {
-      changes.push({ node: otherNode, changeType: 'content' });
-    } else {
-      this.content.forEach((child, index) => {
-        const otherChild = otherNode.content[index];
-        if (typeof child === 'string' && typeof otherChild === 'string') {
-          if (child !== otherChild) {
-            changes.push({ node: otherNode, changeType: 'content' });
-          }
-        } else if (TSENode.isTSENode(child) && TSENode.isTSENode(otherChild)) {
-          const childChanges = child.diff(otherChild);
-          changes.push(...childChanges);
-        } else if (child !== otherChild) {
-          changes.push({ node: otherNode, changeType: 'content' });
-        }
-      });
-    }
-
-    return changes;
   }
 
   getNodeLength(): number {
