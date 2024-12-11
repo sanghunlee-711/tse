@@ -62,29 +62,31 @@ class TSENode {
    * @descriptions 전체 노드 계층 구조에서 오프셋을 재계산합니다.
    */
   recalculateOffsets() {
-    let currOffset = this.startOffset;
+    const dfs = (node: TSENode, prevEndOffset: number): number => {
+      node.startOffset = prevEndOffset;
+      let currentOffset = prevEndOffset;
 
-    const dfs = (node: TSENode) => {
-      //시작 오프셋 갱신
-      node.startOffset = currOffset;
-
-      node.content.forEach((content) => {
+      for (const content of node.content) {
         if (typeof content === 'string') {
-          currOffset += content.length;
+          // 문자열 길이를 즉시 currentOffset에 더해줌
+          currentOffset += content.length;
         } else if (content instanceof TSENode) {
-          dfs(content);
+          // 자식 노드를 재귀 처리한 후 반환값으로 currentOffset 갱신
+          currentOffset = dfs(content, currentOffset);
         }
-      });
-
-      //현 컨텐츠 길이 계산 후 offSet갱신
-      node.endOffset = currOffset;
-
-      if (node.type === 'paragraph') {
-        currOffset += OFFSET_DELIMITER;
       }
+
+      node.endOffset = currentOffset;
+
+      // 문단 타입이면 OFFSET_DELIMITER 추가
+      if (node.type === 'paragraph') {
+        currentOffset += OFFSET_DELIMITER;
+      }
+
+      return currentOffset;
     };
 
-    dfs(this);
+    dfs(this, 0);
   }
 
   toJSON(): any {
