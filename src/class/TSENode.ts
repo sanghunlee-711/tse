@@ -1,5 +1,18 @@
 import { TSENodeAttributes } from '@src/types';
 
+//*TODO: Type적용시키기.
+export type TSENodeType =
+  | 'doc'
+  | 'paragraph'
+  | 'div'
+  | 'image'
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'ul'
+  | 'ol'
+  | 'li';
+
 export type TSENodeContent = TSENode | string;
 const OFFSET_DELIMITER = 1;
 
@@ -62,29 +75,38 @@ class TSENode {
    * @descriptions 전체 노드 계층 구조에서 오프셋을 재계산합니다.
    */
   recalculateOffsets() {
-    let currOffset = this.startOffset;
+    const dfs = (
+      node: TSENode,
+      prevEndOffset: number,
+      isRoot = false
+    ): number => {
+      // 현재 노드의 시작 오프셋 설정
+      node.startOffset = prevEndOffset;
+      let currentOffset = prevEndOffset;
 
-    const dfs = (node: TSENode) => {
-      //시작 오프셋 갱신
-      node.startOffset = currOffset;
-
-      node.content.forEach((content) => {
+      for (const content of node.content) {
         if (typeof content === 'string') {
-          currOffset += content.length;
+          // 문자열 길이를 현재 오프셋에 더함
+          currentOffset += content.length;
         } else if (content instanceof TSENode) {
-          dfs(content);
+          // 자식 노드를 재귀적으로 처리
+          currentOffset = dfs(content, currentOffset);
         }
-      });
-
-      //현 컨텐츠 길이 계산 후 offSet갱신
-      node.endOffset = currOffset;
-
-      if (node.type === 'paragraph') {
-        currOffset += OFFSET_DELIMITER;
       }
-    };
 
-    dfs(this);
+      // 현재 노드의 종료 오프셋 설정
+      node.endOffset = currentOffset;
+
+      // 문단 타입이면서 루트가 아닌 경우에만 OFFSET_DELIMITER를 추가
+      if (node.type === 'paragraph' && !isRoot) {
+        currentOffset += OFFSET_DELIMITER;
+      }
+
+      return currentOffset;
+    };
+    console.log('@@@@', this);
+    // 루트 노드에서 재귀 시작 (루트 노드에는 OFFSET_DELIMITER 적용 안 함)
+    dfs(this, 0, true);
   }
 
   toJSON(): any {

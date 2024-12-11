@@ -97,12 +97,6 @@ class EditorState {
           accumulatedOffset + textLength > stateStartOffset &&
           accumulatedOffset <= stateEndOffset
         ) {
-          const localStart = Math.max(stateStartOffset - accumulatedOffset, 0);
-          const localEnd = Math.min(
-            stateEndOffset - accumulatedOffset,
-            textLength
-          );
-
           return windowNode;
         }
 
@@ -138,10 +132,65 @@ class EditorState {
     return result;
   }
 
+  // getWindowOffsetFrom(
+  //   stateStartOffset: number,
+  //   stateEndOffset: number
+  // ): { windowStartOffset: number; windowEndOffset: number } {
+  //   console.log('getWindowOffsetFrom', { stateStartOffset, stateEndOffset });
+  //   this.validateRange(stateStartOffset, stateEndOffset);
+
+  //   let accumulatedOffset = 0;
+
+  //   const dfs = (
+  //     node: TSENode,
+  //     offset: number
+  //   ): { windowStartOffset: number; windowEndOffset: number } | null => {
+  //     if (
+  //       node.startOffset <= stateStartOffset &&
+  //       node.endOffset >= stateEndOffset
+  //     ) {
+  //       let currOffset = offset; // 현재 노드에서의 누적 오프셋
+  //       const contents = node.content;
+
+  //       for (let i = 0; i < contents.length; i++) {
+  //         const content = contents[i];
+
+  //         if (typeof content === 'string') {
+  //           const contentLength = content.length;
+
+  //           if (
+  //             currOffset + contentLength >= stateStartOffset &&
+  //             currOffset <= stateEndOffset
+  //           ) {
+  //             return {
+  //               windowStartOffset: stateStartOffset - currOffset,
+  //               windowEndOffset: stateEndOffset - currOffset,
+  //             };
+  //           }
+  //           currOffset += contentLength;
+  //         } else if (content instanceof TSENode) {
+  //           const found = dfs(content, currOffset);
+  //           if (found) return found;
+
+  //           currOffset += content.endOffset - content.startOffset;
+  //         }
+  //       }
+  //     }
+  //     return null;
+  //   };
+
+  //   const result = dfs(this.doc, accumulatedOffset);
+  //   console.log({ result });
+
+  //   if (!result) throw new Error('범위를 벗어난 offset입니다.');
+
+  //   return result;
+  // }
+
   getWindowOffsetFrom(
     stateStartOffset: number,
     stateEndOffset: number
-  ): { windowStartOffset: number; windowEndOffset: number } {
+  ): { windowStartOffset: number; windowEndOffset: number } | null {
     console.log('getWindowOffsetFrom', { stateStartOffset, stateEndOffset });
     this.validateRange(stateStartOffset, stateEndOffset);
 
