@@ -52,23 +52,16 @@ class TSENode {
    * @returns {number} 종료 오프셋
    */
   private calculateEndOffset(): number {
-    if (typeof this.content === 'string') {
-      return this.startOffset + (this.content as string).length;
-    }
+    let endOffset = this.startOffset;
 
-    if (Array.isArray(this.content)) {
-      let endOffset = this.startOffset;
-
-      this.content.forEach((child) => {
-        if (child instanceof TSENode) {
-          endOffset = Math.max(endOffset, child.calculateEndOffset());
-        } else if (typeof child === 'string') {
-          endOffset += child.length;
-        }
-      });
-      return endOffset;
-    }
-    return this.startOffset;
+    this.content.forEach((child: TSENodeContent) => {
+      if (child instanceof TSENode) {
+        endOffset = Math.max(endOffset, child.calculateEndOffset());
+      } else if (typeof child === 'string') {
+        endOffset += child.length;
+      }
+    });
+    return endOffset;
   }
 
   /**
@@ -83,8 +76,13 @@ class TSENode {
       // 현재 노드의 시작 오프셋 설정
       node.startOffset = prevEndOffset;
       let currentOffset = prevEndOffset;
+      let currIdx = 0;
+      let isEnd = node.content.length - 1 === currIdx;
 
-      for (const content of node.content) {
+      for (let i = 0; i < node.content.length; i++) {
+        const content = node.content[i];
+        currIdx = i;
+
         if (typeof content === 'string') {
           // 문자열 길이를 현재 오프셋에 더함
           currentOffset += content.length;
@@ -104,9 +102,10 @@ class TSENode {
 
       return currentOffset;
     };
-    console.log('@@@@', this);
+
     // 루트 노드에서 재귀 시작 (루트 노드에는 OFFSET_DELIMITER 적용 안 함)
     dfs(this, 0, true);
+    // console.log('@@@@', this);
   }
 
   toJSON(): any {

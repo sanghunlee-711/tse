@@ -117,8 +117,17 @@ class EditorView {
       console.warn('Unable to update selection.');
       return;
     }
-    const { windowStartOffset, windowEndOffset } =
-      this.state.getWindowOffsetFrom(startOffset, endOffset);
+
+    const offsetResult = this.state.getWindowOffsetFrom(
+      startOffset,
+      endOffset,
+      this.rootElement
+    );
+
+    if (!offsetResult) throw new Error('windowOffset범위를 찾지 못했습니다.');
+
+    const { windowStartOffset, windowEndOffset } = offsetResult;
+
     const windowNode = this.state.getWindowNodeFrom(
       startOffset,
       endOffset,
@@ -205,9 +214,16 @@ class EditorView {
   createInsertTextTransaction(text: string): Transaction {
     const { startOffset, endOffset } = this.selection;
     const node = this.state.getNodeFrom(startOffset, endOffset);
+    const offsetResult = this.state.getWindowOffsetFrom(
+      startOffset,
+      endOffset,
+      this.rootElement
+    );
 
-    const { windowStartOffset, windowEndOffset } =
-      this.state.getWindowOffsetFrom(startOffset, endOffset);
+    if (!offsetResult) throw new Error('windowOffset범위를 찾지 못했습니다.');
+
+    const { windowStartOffset, windowEndOffset } = offsetResult;
+
     console.log('createInsert!!', windowStartOffset, windowEndOffset);
     const transaction = new Transaction(this.state);
     const currentContent = node.content[0] as string;
@@ -265,7 +281,11 @@ class EditorView {
   createDeleteTransaction(): Transaction {
     const { startOffset, endOffset } = this.selection;
     const node = this.state.getNodeFrom(startOffset, endOffset);
-    const localOffset = this.state.getWindowOffsetFrom(startOffset, endOffset);
+    const localOffset = this.state.getWindowOffsetFrom(
+      startOffset,
+      endOffset,
+      this.rootElement
+    );
     const transaction = new Transaction(this.state);
 
     // Offset 수정
@@ -276,7 +296,7 @@ class EditorView {
 
     const nodeIndex = this.state.doc.content.indexOf(node);
 
-    if (localOffset.windowStartOffset === 0 && nodeIndex > 0) {
+    if (localOffset?.windowStartOffset === 0 && nodeIndex > 0) {
       // 현재 노드의 첫 번째 인덱스이며, 이전 문단이 존재하는 경우 병합 처리
       const prevNode = this.state.doc.content[nodeIndex - 1];
 
@@ -291,8 +311,8 @@ class EditorView {
             const updatedEachContent =
               (eachContent as string).slice(
                 0,
-                localOffset.windowStartOffset - 1
-              ) + (eachContent as string).slice(localOffset.windowEndOffset);
+                (localOffset?.windowStartOffset || 0) - 1
+              ) + (eachContent as string).slice(localOffset?.windowEndOffset);
 
             transaction.updateNodeContents(node, [updatedEachContent]);
           }
@@ -312,7 +332,11 @@ class EditorView {
     //엔터키 클릭 시 해당 커서가 위치한 노드의 다음 부분 부터는 새로운 노드를 만들어 현재노드의 다음노드로 넣고
     //위치한 커서의 다음 내용부터는 다음 노드에 넣어줘야한다.
     const node = this.state.getNodeFrom(startOffset, endOffset);
-    const localOffset = this.state.getWindowOffsetFrom(startOffset, endOffset);
+    const localOffset = this.state.getWindowOffsetFrom(
+      startOffset,
+      endOffset,
+      this.rootElement
+    );
 
     const transaction = new Transaction(this.state);
 
@@ -321,10 +345,10 @@ class EditorView {
         if (typeof eachContent === 'string') {
           const updatedCurrentContent = (eachContent as string).slice(
             0,
-            localOffset.windowStartOffset
+            localOffset?.windowStartOffset
           );
           const nextNodeContent = (eachContent as string).slice(
-            localOffset.windowStartOffset
+            localOffset?.windowStartOffset
           );
 
           const currNodeIdx = this.state.doc.content.indexOf(node);

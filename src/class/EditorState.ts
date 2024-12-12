@@ -93,6 +93,7 @@ class EditorState {
       if (windowNode.nodeType === Node.TEXT_NODE) {
         const textLength = windowNode.textContent?.length || 0;
 
+        // 상태의 시작과 끝 오프셋이 현재 노드 범위에 속하는 경우 반환
         if (
           accumulatedOffset + textLength > stateStartOffset &&
           accumulatedOffset <= stateEndOffset
@@ -103,141 +104,122 @@ class EditorState {
         accumulatedOffset += textLength;
       } else if (windowNode.nodeType === Node.ELEMENT_NODE && tseNode) {
         const tseChildren = tseNode.content;
+        let windowChildIndex = 0; // DOM 노드의 인덱스 추적
 
-        for (let i = 0; i < windowNode.childNodes.length; i++) {
-          const windowChildNode = windowNode.childNodes[i];
-          const tseChild = tseChildren[i];
+        for (const tseChild of tseChildren) {
+          const windowChildNode = windowNode.childNodes[windowChildIndex];
 
-          const result = traverse(
-            windowChildNode,
-            tseChild instanceof TSENode ? tseChild : undefined
-          );
+          if (typeof tseChild === 'string') {
+            // 텍스트 콘텐츠를 처리
+            const textLength = tseChild.length;
 
-          if (result) return result;
+            if (
+              accumulatedOffset + textLength > stateStartOffset &&
+              accumulatedOffset <= stateEndOffset
+            ) {
+              return windowChildNode?.nodeType === Node.TEXT_NODE
+                ? windowChildNode
+                : null;
+            }
 
-          /**
-           * @description TSE노드에서는 각 문단이 끝날 때마다 offSet을 하나씩 추가해줘야 한다.
-           */
-          if (tseChild instanceof TSENode)
-            accumulatedOffset += OFFSET_DELIMITER;
+            accumulatedOffset += textLength;
+            windowChildIndex++;
+          } else if (tseChild instanceof TSENode) {
+            // 중첩된 TSENode를 처리
+            const result = traverse(
+              windowNode.childNodes[windowChildIndex],
+              tseChild
+            );
+
+            if (result) return result;
+
+            // 중첩된 노드의 길이를 오프셋에 추가
+            accumulatedOffset += tseChild.endOffset - tseChild.startOffset;
+
+            // DOM 인덱스 증가
+            windowChildIndex++;
+          }
+        }
+
+        // 문단 노드의 경우 OFFSET_DELIMITER 추가
+        if (tseNode.type === 'paragraph') {
+          accumulatedOffset += OFFSET_DELIMITER;
         }
       }
       return null;
     };
 
     const result = traverse(rootElement, this.doc);
+
     if (!result)
-      throw new Error('실제 DOM에서 찾을 수 없는 offset범위 입니다.');
+      throw new Error('실제 DOM에서 찾을 수 없는 offset 범위입니다.');
 
     return result;
   }
 
-  // getWindowOffsetFrom(
-  //   stateStartOffset: number,
-  //   stateEndOffset: number
-  // ): { windowStartOffset: number; windowEndOffset: number } {
-  //   console.log('getWindowOffsetFrom', { stateStartOffset, stateEndOffset });
-  //   this.validateRange(stateStartOffset, stateEndOffset);
-
-  //   let accumulatedOffset = 0;
-
-  //   const dfs = (
-  //     node: TSENode,
-  //     offset: number
-  //   ): { windowStartOffset: number; windowEndOffset: number } | null => {
-  //     if (
-  //       node.startOffset <= stateStartOffset &&
-  //       node.endOffset >= stateEndOffset
-  //     ) {
-  //       let currOffset = offset; // 현재 노드에서의 누적 오프셋
-  //       const contents = node.content;
-
-  //       for (let i = 0; i < contents.length; i++) {
-  //         const content = contents[i];
-
-  //         if (typeof content === 'string') {
-  //           const contentLength = content.length;
-
-  //           if (
-  //             currOffset + contentLength >= stateStartOffset &&
-  //             currOffset <= stateEndOffset
-  //           ) {
-  //             return {
-  //               windowStartOffset: stateStartOffset - currOffset,
-  //               windowEndOffset: stateEndOffset - currOffset,
-  //             };
-  //           }
-  //           currOffset += contentLength;
-  //         } else if (content instanceof TSENode) {
-  //           const found = dfs(content, currOffset);
-  //           if (found) return found;
-
-  //           currOffset += content.endOffset - content.startOffset;
-  //         }
-  //       }
-  //     }
-  //     return null;
-  //   };
-
-  //   const result = dfs(this.doc, accumulatedOffset);
-  //   console.log({ result });
-
-  //   if (!result) throw new Error('범위를 벗어난 offset입니다.');
-
-  //   return result;
-  // }
-
   getWindowOffsetFrom(
     stateStartOffset: number,
-    stateEndOffset: number
+    stateEndOffset: number,
+    rootElement: HTMLElement
   ): { windowStartOffset: number; windowEndOffset: number } | null {
-    console.log('getWindowOffsetFrom', { stateStartOffset, stateEndOffset });
     this.validateRange(stateStartOffset, stateEndOffset);
 
-    let accumulatedOffset = 0;
-
     const dfs = (
-      node: TSENode,
-      offset: number
+      tseNode: TSENode,
+      domNode: Node,
+      baseOffset: number
     ): { windowStartOffset: number; windowEndOffset: number } | null => {
       if (
-        node.startOffset <= stateStartOffset &&
-        node.endOffset >= stateEndOffset
+        tseNode.startOffset <= stateStartOffset &&
+        tseNode.endOffset >= stateEndOffset
       ) {
-        let currOffset = offset; // 현재 노드에서의 누적 오프셋
-        const contents = node.content;
+        let currOffset = baseOffset;
+        const domChildren = Array.from(domNode.childNodes);
 
-        for (let i = 0; i < contents.length; i++) {
-          const content = contents[i];
+        for (let i = 0; i < tseNode.content.length; i++) {
+          const content = tseNode.content[i];
+          const domChild = domChildren[i];
 
           if (typeof content === 'string') {
-            const contentLength = content.length;
+            const length = content.length;
 
             if (
-              currOffset + contentLength >= stateStartOffset &&
+              currOffset + length > stateStartOffset &&
               currOffset <= stateEndOffset
             ) {
-              return {
-                windowStartOffset: stateStartOffset - currOffset,
-                windowEndOffset: stateEndOffset - currOffset,
-              };
+              const windowStartOffset = stateStartOffset - currOffset;
+              const windowEndOffset = Math.min(
+                stateEndOffset - currOffset,
+                length
+              );
+              return { windowStartOffset, windowEndOffset };
             }
-            currOffset += contentLength;
-          } else if (content instanceof TSENode) {
-            const found = dfs(content, currOffset);
-            if (found) return found;
 
+            currOffset += length;
+          } else if (content instanceof TSENode) {
+            const result = dfs(content, domChild, currOffset);
+            if (result) return result;
+
+            // 자식 노드 처리 후 오프셋 갱신
             currOffset += content.endOffset - content.startOffset;
           }
         }
+
+        // 만약 정확히 노드 끝 경계에 맞추어진 경우를 처리
+        if (currOffset === stateStartOffset) {
+          return { windowStartOffset: 0, windowEndOffset: 0 };
+        }
       }
+
       return null;
     };
 
-    const result = dfs(this.doc, accumulatedOffset);
-    console.log({ result });
-
-    if (!result) throw new Error('범위를 벗어난 offset입니다.');
+    const result = dfs(this.doc, rootElement, 0);
+    if (!result) {
+      throw new Error(
+        `범위를 벗어난 offset입니다. startOffset:${stateStartOffset}, endOffset:${stateEndOffset}`
+      );
+    }
 
     return result;
   }
