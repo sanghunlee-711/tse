@@ -3,19 +3,18 @@ import { OFFSET_DELIMITER } from '@src/constants/delimiter';
 import { ROOT_NODE_NAME } from '@src/constants/node';
 
 /**
- * window DOM 노드로부터 절대 오프셋을 계산합니다.
- * window DOM노드의 상황을 통해 TSENode에서 사용될 절대 offset으로 반환해줍니다.
+ * window DOM노드와 windowOffset을 통해 TSENode에서 사용될 stateOffset으로 반환해줍니다.
  * @param {Node} node - DOM 노드
- * @param {number} offset - 노드 내부의 상대 오프셋
- * @returns {number} 절대 오프셋
+ * @param {number} windowOffset - windowNode의 offset
+ * @returns {number} TSENode에서 사용가능한 stateOffset
  */
 export function calculateAbsoluteOffsetFromDOM(
   node: Node,
-  offset: number
+  windowOffset: number
 ): number {
   const $content = document.getElementById(ROOT_NODE_NAME);
   let currentNode = node;
-  let accumulatedOffset = offset;
+  let accumulatedOffset = windowOffset;
 
   while (currentNode && currentNode.previousSibling) {
     currentNode = currentNode.previousSibling;

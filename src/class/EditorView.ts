@@ -133,10 +133,18 @@ class EditorView {
       endOffset,
       this.rootElement
     );
+    console.log({ 'windowNode@@@': windowNode });
     const range = document.createRange();
+    console.log(
+      'range.startOffset:',
+      range.startOffset,
+      'range.endOffset',
+      range.endOffset,
+      range.startContainer
+    );
 
-    range.setStart(windowNode, windowStartOffset + 1);
-    range.setEnd(windowNode, windowEndOffset + 1);
+    range.setStart(windowNode, windowStartOffset);
+    range.setEnd(windowNode, windowEndOffset);
 
     selection.removeAllRanges();
     selection.addRange(range);

@@ -1,71 +1,76 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { calculateAbsoluteOffsetFromDOM } from '../offset';
 import { ROOT_NODE_NAME } from '@src/constants/node';
-import TSENode from '@src/class/TSENode';
 
-describe.skip('calculateAbsoluteOffsetFromDOM 함수 테스트', () => {
-  const OFFSET_DELIMITER = 1;
-
+describe('calculateAbsoluteOffsetFromDOM 함수 테스트', () => {
   beforeEach(() => {
+    /**
+     *         
+     * <div id="${ROOT_NODE_NAME}">
+         <p>ABC</p>
+         <p>DEF</p>
+         <p>
+           HIJ
+           <b>KLM</b>
+           NOP
+         </p>
+       </div>
+     */
     /**
      * @description
      * 테스트 진행 전 미리 노드 세팅
-     * 첫번째 노드 offset 7
-     * 두번째 노드 offset 7
-     * 세번째 부모 노드 offset 12
+     *                State Window
+     * 첫번째 노드 offset 0~3 // 0~3
+     * 두번째 노드 offset 4~7 // 0~3
+     * 세번째 부모 노드 offset 8~17  // 0~9
      * 세번째 자식 노드
      */
-    document.body.innerHTML = `
-      <div id="${ROOT_NODE_NAME}">
-        <p>첫 번째 노드</p> 
-        <p>두 번째 노드</p>
-        <p>
-          세번째 <b>중첩된 노드</b> 노드
-        </p>
-      </div>
-    `;
+    const root = document.createElement('div');
+    root.setAttribute('id', ROOT_NODE_NAME);
+
+    const firstParagraph = document.createElement('p');
+    firstParagraph.textContent = 'ABC';
+
+    const secondParagraph = document.createElement('p');
+    secondParagraph.textContent = 'DEF';
+
+    const thirdParagraph = document.createElement('p');
+    const bold = document.createElement('b');
+    bold.textContent = 'KLM';
+    thirdParagraph.append('HIJ', bold, 'NOP');
+
+    root.append(firstParagraph, secondParagraph, thirdParagraph);
+    document.body.append(root);
   });
 
   it('단순 노드의 절대 오프셋을 계산할 수 있어야 한다', () => {
     const root = document.getElementById(ROOT_NODE_NAME);
-    const firstNode = root?.firstChild as Node;
-    const result = calculateAbsoluteOffsetFromDOM(firstNode, 7);
-    const expectedOffset = 7;
+    const firstParagraph = root?.firstChild as Node;
+    console.log({ firstParagraph: firstParagraph.textContent });
+    const result = calculateAbsoluteOffsetFromDOM(firstParagraph, 3);
+    const expectedOffset = 3;
 
     expect(result).toBe(expectedOffset);
   });
 
-  it('형제 노드의 절대 오프셋을 계산할 수 있어야 한다', () => {
+  it('두번째 노드 컨테이너와 windowOffset이 주어지는 경우, stateOffset으로 변환할 수 있어야 한다', () => {
     const root = document.getElementById(ROOT_NODE_NAME);
-    const secondNode = root?.childNodes[1] as Node;
-    const result = calculateAbsoluteOffsetFromDOM(secondNode, 3);
-    const firstNodeLength = root?.childNodes[0].textContent?.length || 0;
-    const expectedOffset = firstNodeLength + OFFSET_DELIMITER + 3;
+    const secondParagraph = root?.childNodes[1] as Node;
+    const result = calculateAbsoluteOffsetFromDOM(secondParagraph, 3);
+    const expectedOffset = 7;
 
     expect(result).toBe(expectedOffset);
   });
 
   it('중첩된 노드인 경우, 절대 오프셋을 계산할 수 있어야 한다', () => {
     const root = document.getElementById(ROOT_NODE_NAME);
-    const nestedNode = root?.childNodes[2] as Node;
-    console.log({ nestedNode });
+    const boldNode = root?.childNodes[2].childNodes[1] as Node;
+
     // 각 노드의 textContent 길이를 정확히 계산
-    const firstNodeLength = root?.childNodes[0].textContent?.length || 0;
-    const secondNodeLength =
-      (root?.childNodes[1] as HTMLElement).textContent?.length || 0;
 
-    const result = calculateAbsoluteOffsetFromDOM(
-      nestedNode,
-      firstNodeLength + OFFSET_DELIMITER + secondNodeLength + OFFSET_DELIMITER
-    );
+    const result = calculateAbsoluteOffsetFromDOM(boldNode, 2);
 
-    const expectedOffset =
-      firstNodeLength +
-      OFFSET_DELIMITER +
-      secondNodeLength +
-      OFFSET_DELIMITER +
-      12;
-
+    const expectedOffset = 13;
     expect(result).toBe(expectedOffset);
   });
 

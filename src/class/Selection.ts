@@ -19,12 +19,19 @@ class Selection {
     const selection = window.getSelection();
     if (!selection?.rangeCount) return;
     const range = selection.getRangeAt(0);
-    const startOffsetResult = calculateAbsoluteOffsetFromDOM(
+
+    this.startOffset = calculateAbsoluteOffsetFromDOM(
       range.startContainer,
       range.startOffset
     );
 
-    this.startOffset = startOffsetResult;
+    console.log(
+      '@!@#@!#!@#',
+      range.startContainer,
+      range.startOffset,
+      range.endContainer,
+      range.endOffset
+    );
 
     this.endOffset = calculateAbsoluteOffsetFromDOM(
       range.endContainer,

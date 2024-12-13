@@ -63,6 +63,7 @@ class Transaction {
     addNodeIndex?: number
   ): this {
     const newNode = this.state.schema.createNode(type, attrs, content);
+
     this.steps.push((doc) => {
       let newContent = doc.content;
 
