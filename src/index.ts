@@ -4,6 +4,7 @@ import Schema from '@src/class/Schema';
 import Transaction from '@src/class/Transaction';
 import Selection from '@src/class/Selection';
 import TSENode from './class/TSENode';
+import { CorePlugins } from './class/plugins';
 
 // 1. Schema 설정
 const schemaSpec = {
@@ -37,8 +38,9 @@ if ($rootElement) {
   // 3. EditorState 생성
   const state = new EditorState({ schema, doc }, selection);
 
+  const plugins = [...CorePlugins];
   // 4. EditorView 생성 및 DOM에 렌더링
-  const editorView = new EditorView($rootElement, state);
+  const editorView = new EditorView($rootElement, state, plugins);
 
   //트랜잭션은 한번의 액션에 하나가 발생하게 된다!
   // 테스트 트랜잭션: 새로운 paragraph 노드 추가
@@ -50,7 +52,7 @@ if ($rootElement) {
 
   const transactionBar = new Transaction(state);
   transactionBar.addNode('paragraph', {}, [
-    'Some Text is Start and ',
+    'Anything is Start and ',
     new TSENode('italic', {}, ['Italic Text']),
     ' and more text',
   ]);

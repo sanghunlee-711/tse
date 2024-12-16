@@ -28,7 +28,7 @@ class EditorState {
     });
 
     updatedDoc.recalculateOffsets();
-
+    this.doc;
     return new EditorState(
       { schema: this.schema, doc: updatedDoc },
       this.selection

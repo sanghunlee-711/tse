@@ -1,6 +1,5 @@
 import { OFFSET_DELIMITER } from '@src/constants/delimiter';
 import EditorState from './EditorState';
-import Schema from './Schema';
 import TSENode, { TSENodeContent } from './TSENode';
 
 /**
@@ -109,18 +108,15 @@ class Transaction {
     return this;
   }
 
-  updateNodeContents(
-    changedNode: TSENode,
-    newContents: TSENodeContent[]
-  ): this {
+  updateNode(newNode: TSENode): this {
     this.steps.push((doc) => {
       const updateContentRecursively = (node: TSENode): TSENode => {
         // 현재 노드가 변경 대상 노드인 경우 업데이트
-        if (node === changedNode) {
+        if (node === newNode) {
           return new TSENode(
             node.type,
             node.attrs,
-            newContents,
+            newNode.content,
             node.startOffset
           );
         }
@@ -146,10 +142,10 @@ class Transaction {
       const updatedDoc = updateContentRecursively(doc);
 
       // 변경된 노드의 범위를 다시 계산
-      const changedNodeStart = changedNode.startOffset;
+      const changedNodeStart = newNode.startOffset;
       const changedNodeEnd =
-        changedNode.startOffset +
-        newContents.reduce((len, content) => {
+        newNode.startOffset +
+        newNode.content.reduce((len, content) => {
           if (typeof content === 'string') {
             return len + content.length;
           } else if (content instanceof TSENode) {

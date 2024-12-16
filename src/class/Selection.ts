@@ -25,14 +25,6 @@ class Selection {
       range.startOffset
     );
 
-    console.log(
-      '@!@#@!#!@#',
-      range.startContainer,
-      range.startOffset,
-      range.endContainer,
-      range.endOffset
-    );
-
     this.endOffset = calculateAbsoluteOffsetFromDOM(
       range.endContainer,
       range.endOffset

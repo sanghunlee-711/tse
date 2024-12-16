@@ -23,3 +23,8 @@
 - Every block is based on `paragraph`
 - It should be wrapped `paragraph` IF one line is only wrotten as `bold`
 - It should be wrapped `paragraph` IF one line has only a `image`
+
+# RoadMap
+
+- [ ] Update State with plugin and Keymap definition
+- [ ] [Update cursor pointer](https://github.com/ProseMirror/prosemirror-model/blob/master/src/resolvedpos.ts)
