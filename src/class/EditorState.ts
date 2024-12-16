@@ -2,7 +2,6 @@ import TSENode from './TSENode';
 import Transaction from './Transaction';
 import Selection from './Selection';
 import Schema from './Schema';
-import { OFFSET_DELIMITER } from '@src/constants/delimiter';
 
 export interface EditorStateConfig {
   schema: Schema; // schema 속성 추가

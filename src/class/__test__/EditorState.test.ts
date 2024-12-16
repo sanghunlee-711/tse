@@ -11,6 +11,7 @@ const schemaSpec = {
     heading: { group: 'block', attrs: { level: 1 } },
   },
 };
+
 const doc = new TSENode(
   'doc',
   {
@@ -26,6 +27,7 @@ const doc = new TSENode(
     ]),
   ]
 );
+
 const selection = new Selection(doc);
 const schema = new Schema(schemaSpec);
 describe('EditorState > getWindowNodeFrom', () => {

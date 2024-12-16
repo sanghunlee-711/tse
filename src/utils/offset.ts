@@ -1,10 +1,9 @@
 import EditorView from '@src/class/EditorView';
-import TSENode from '@src/class/TSENode';
 import { OFFSET_DELIMITER } from '@src/constants/delimiter';
 import { ROOT_NODE_NAME } from '@src/constants/node';
 
 /**
- * window DOM노드와 windowOffset을 통해 TSENode에서 사용될 stateOffset으로 반환해줍니다.
+ * @descriptions window DOM노드와 windowOffset을 통해 TSENode에서 사용될 stateOffset으로 반환해줍니다.
  * @param {Node} node - DOM 노드
  * @param {number} windowOffset - windowNode의 offset
  * @returns {number} TSENode에서 사용가능한 stateOffset
@@ -48,7 +47,13 @@ export function calculateAbsoluteOffsetFromDOM(
 
   return accumulatedOffset;
 }
-
+/**
+ * @descriptions 현재의 windowRange객체와 Node를 반환해줍니다.
+ * @param stateStartOffset Selection에 존재하는 상태관리를 위한 TSENode의 StartOffset
+ * @param stateEndOffset Selection에 존재하는 상태관리를 위한 TSENode의 EndOffset
+ * @param view EditorView
+ * @returns
+ */
 export function getCurrentWindowRangeAndNodeFrom(
   stateStartOffset: number,
   stateEndOffset: number,

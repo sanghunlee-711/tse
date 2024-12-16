@@ -5,7 +5,10 @@ import EditorPlugin from './EditorPlugin';
 import { getCurrentWindowRangeAndNodeFrom } from '@src/utils/offset';
 
 /**
- * @descriptions 문자열 생성 시 에디터의 커서 포인터가 제대로 위치하게 만들기 위한 메서드
+ * @descriptions 문자열 삭제 시 에디터의 커서 포인터가 제대로 위치하게 만들기 위한 메서드
+ * @param startOffset
+ * @param endOffset
+ * @returns
  */
 function updateCarrotPosition(
   stateStartOffset: number,
@@ -23,19 +26,19 @@ function updateCarrotPosition(
   const { selection, windowStartOffset, windowEndOffset, windowNode, range } =
     result;
 
-  range.setStart(windowNode, EventMap['insertText'](windowStartOffset));
-  range.setEnd(windowNode, EventMap['insertText'](windowEndOffset));
+  range.setStart(windowNode, EventMap['deleteText'](windowStartOffset));
+  range.setEnd(windowNode, EventMap['deleteText'](windowEndOffset));
 
   selection.removeAllRanges();
   selection.addRange(range);
 }
 
 /**
- * 텍스트 삽입 트랜잭션을 생성합니다.
- * @param {string} text - 삽입할 텍스트
+ * 텍스트 제거 트랜잭션을 생성합니다.
+ * @param {string} text - 현재 텍스트
  * @returns {Transaction} 생성된 트랜잭션
  */
-function createInsertTextTransaction(
+function createDeleteTextTransaction(
   text: string,
   view: EditorView
 ): Transaction {
@@ -55,24 +58,24 @@ function createInsertTextTransaction(
   const currentContent = node.content[0] as string;
 
   const updatedContent = [
-    currentContent.slice(0, windowStartOffset) +
-      text +
+    currentContent.slice(0, windowStartOffset - 1) +
       currentContent.slice(windowEndOffset),
   ];
+
   node.content = updatedContent;
   transaction.updateNode(node);
 
   return transaction;
 }
 
-export class InsertTextPlugin implements EditorPlugin {
+export class DeleteTextPlugin implements EditorPlugin {
   eventType: keyof HTMLElementEventMap = 'input';
 
   on(event: Event, view: EditorView) {
     const e = event as InputEvent;
-    if (e.inputType === 'insertText') {
-      const transaction = createInsertTextTransaction(e.data || '', view);
-      view.dispatch(transaction);
+    if (e.inputType === 'deleteContentBackward') {
+      const transaction = createDeleteTextTransaction(e.data || '', view);
+      view.dispatch(transaction, this);
     }
   }
   afterSyncDOM(transaction: Transaction, view: EditorView) {

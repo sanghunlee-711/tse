@@ -35,13 +35,16 @@ class EditorView {
    * 트랜잭션을 처리하고 상태를 업데이트합니다.
    * @param {Transaction} transaction - 실행할 트랜잭션
    */
-  dispatch(transaction: Transaction) {
+  dispatch(transaction: Transaction, triggerPlugin?: EditorPlugin) {
     this.state = this.state.apply(transaction);
     this.state.selection = this.selection;
     this.syncDOM(transaction);
     this.selection.updateRootNode(this.state.doc);
     this.selection.updateSelection();
-    this.plugins.forEach((plugin) => plugin.afterSyncDOM?.(transaction, this));
+
+    if (triggerPlugin && triggerPlugin.afterSyncDOM) {
+      triggerPlugin.afterSyncDOM(transaction, this);
+    }
   }
 
   private updateDOM(from: number, to: number) {
