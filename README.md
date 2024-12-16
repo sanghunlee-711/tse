@@ -13,10 +13,11 @@
 
 ## Paragraph Node
 
-- [x] Insert text
-- [x] Delete text
-- [ ] merge Node with Back Button
-- [ ] Divide Node with Enter Button
+- [x] 새로운 글자를 타이핑 하는 경우, 캐럿 위치는 글자가 주입된 다음에 위치해야 한다.
+- [x] 기존의 글자를 지우는 경우, 캐럿 위치는 글자가 주입된 이전에 위치애햐 한다.
+- [ ] 노드의 마지막에서 엔터가 된 경우, 새로운 문단의 첫번째 위치에 캐럿이 위치 해야한다.
+- [ ] 노드의 중간 위치에서 엔터가 된 경우, 새로운 문단의 첫번째 위치에 캐럿이 위치 해야한다.
+- [ ] 노드의 첫번째 위치에서 backSpace가 된 경우 이전 노드의 마지막에 캐럿이 위치 해야한다.
 
 # EXPLANATIONS
 
@@ -26,5 +27,5 @@
 
 # RoadMap
 
-- [ ] Update State with plugin and Keymap definition
+- [x] Update State with plugin and Keymap definition
 - [ ] [Update cursor pointer](https://github.com/ProseMirror/prosemirror-model/blob/master/src/resolvedpos.ts)

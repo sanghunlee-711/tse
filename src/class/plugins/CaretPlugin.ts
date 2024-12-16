@@ -66,12 +66,11 @@ export default class CaretPlugin implements EditorPlugin {
   on = (e: Event, view: EditorView) => {
     // 구현 내용
   };
-  afterSyncDOM = (transaction: Transaction, view: EditorView) => {
-    console.log('!!afterSyncDom caret');
-    updateCarrotPosition(
-      transaction.startOffset || 0,
-      transaction.endOffset || 0,
-      view
-    );
-  };
+  //   afterSyncDOM = (transaction: Transaction, view: EditorView) => {
+  //     updateCarrotPosition(
+  //       transaction.startOffset || 0,
+  //       transaction.endOffset || 0,
+  //       view
+  //     );
+  //   };
 }

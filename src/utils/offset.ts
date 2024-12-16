@@ -1,3 +1,4 @@
+import EditorView from '@src/class/EditorView';
 import TSENode from '@src/class/TSENode';
 import { OFFSET_DELIMITER } from '@src/constants/delimiter';
 import { ROOT_NODE_NAME } from '@src/constants/node';
@@ -46,4 +47,44 @@ export function calculateAbsoluteOffsetFromDOM(
   }
 
   return accumulatedOffset;
+}
+
+export function getCurrentWindowRangeAndNodeFrom(
+  stateStartOffset: number,
+  stateEndOffset: number,
+  view: EditorView
+) {
+  const selection = window.getSelection();
+
+  if (!selection || !view.rootElement) {
+    console.warn('Unable to update selection.');
+    return;
+  }
+
+  const offsetResult = view.state.getWindowOffsetFrom(
+    stateStartOffset,
+    stateEndOffset,
+    view.rootElement
+  );
+
+  if (!offsetResult) throw new Error('windowOffset범위를 찾지 못했습니다.');
+
+  const { windowStartOffset, windowEndOffset } = offsetResult;
+
+  // TODO : getWindowNodeFrom는 Text를 가진 하위 노드인 경우 그 텍스트를 가진 상위 노드를 반환해주므로 firstChild를 활용
+  const windowNode = view.state.getWindowNodeFrom(
+    stateStartOffset,
+    stateEndOffset,
+    view.rootElement
+  ).firstChild as Node;
+
+  const range = document.createRange();
+
+  return {
+    selection,
+    windowStartOffset,
+    windowEndOffset,
+    windowNode,
+    range,
+  };
 }
