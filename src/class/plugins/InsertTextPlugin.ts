@@ -3,6 +3,7 @@ import EditorView from '../EditorView';
 import Transaction from '../Transaction';
 import EditorPlugin from './EditorPlugin';
 import { getCurrentWindowRangeAndNodeFrom } from '@src/utils/offset';
+import { TSENodeContent } from '../TSENode';
 
 /**
  * @descriptions 문자열 생성 시 에디터의 커서 포인터가 제대로 위치하게 만들기 위한 메서드
@@ -12,6 +13,7 @@ function updateCarrotPosition(
   stateEndOffset: number,
   view: EditorView
 ) {
+  console.log('work?');
   const result = getCurrentWindowRangeAndNodeFrom(
     stateStartOffset,
     stateEndOffset,
@@ -29,7 +31,17 @@ function updateCarrotPosition(
   selection.removeAllRanges();
   selection.addRange(range);
 }
-
+function getNodeTextLength(node: TSENodeContent): number {
+  if (typeof node === 'string') {
+    return node.length;
+  } else {
+    // TSENode라면 내부 content를 순회하며 길이 합산
+    return node.content.reduce(
+      (sum, child) => sum + getNodeTextLength(child),
+      0
+    );
+  }
+}
 /**
  * 텍스트 삽입 트랜잭션을 생성합니다.
  * @param {string} text - 삽입할 텍스트
@@ -41,6 +53,10 @@ function createInsertTextTransaction(
 ): Transaction {
   const { startOffset, endOffset } = view.selection;
   const node = view.state.getNodeFrom(startOffset, endOffset);
+  const { content, contentIndex } = view.state.getNodeContentFrom(
+    startOffset,
+    endOffset
+  );
   const offsetResult = view.state.getWindowOffsetFrom(
     startOffset,
     endOffset,
@@ -52,14 +68,19 @@ function createInsertTextTransaction(
   const { windowStartOffset, windowEndOffset } = offsetResult;
 
   const transaction = new Transaction(view.state);
-  const currentContent = node.content[0] as string;
 
-  const updatedContent = [
-    currentContent.slice(0, windowStartOffset) +
+  if (typeof content === 'string') {
+    const updatedContent =
+      content.slice(0, windowStartOffset) +
       text +
-      currentContent.slice(windowEndOffset),
-  ];
-  node.content = updatedContent;
+      content.slice(windowEndOffset);
+
+    node.content[contentIndex] = updatedContent;
+  } else {
+    // *TODO: 에러처리 필요할 것 같다.
+    throw new Error('문자가 아닌 node가 탐색 되었습니다.');
+  }
+
   transaction.updateNode(node);
 
   return transaction;
@@ -72,7 +93,7 @@ export class InsertTextPlugin implements EditorPlugin {
     const e = event as InputEvent;
     if (e.inputType === 'insertText') {
       const transaction = createInsertTextTransaction(e.data || '', view);
-      view.dispatch(transaction);
+      view.dispatch(transaction, this);
     }
   }
   afterSyncDOM(transaction: Transaction, view: EditorView) {

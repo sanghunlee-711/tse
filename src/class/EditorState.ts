@@ -47,13 +47,14 @@ class EditorState {
 
   getNodeFrom(stateStartOffset: number, stateEndOffset: number) {
     this.validateRange(stateStartOffset, stateEndOffset);
-
+    console.log({ stateStartOffset, stateEndOffset });
     const dfs = (node: TSENode): TSENode | null => {
       //base case
-      if (
+      const isInsideNode =
         node.startOffset <= stateStartOffset &&
-        node.endOffset >= stateEndOffset
-      ) {
+        node.endOffset >= stateEndOffset;
+
+      if (isInsideNode) {
         const contents = node.content;
 
         for (let i = 0; i < contents.length; i++) {
@@ -72,9 +73,81 @@ class EditorState {
 
       return null;
     };
+
     const result = dfs(this.doc);
     if (!result)
       throw new Error('TSENode찾기에 실패하였습니다. 범위를 확인해주세요');
+    return result;
+  }
+  /**
+   * @description offset을 통해 node의 content와 해당 content의 Index를 반환 합니다.
+   * @param stateStartOffset
+   * @param stateEndOffset
+   */
+  getNodeContentFrom(stateStartOffset: number, stateEndOffset: number) {
+    this.validateRange(stateStartOffset, stateEndOffset);
+
+    const dfs = (
+      node: TSENode
+    ): {
+      node: TSENode;
+      contentIndex: number;
+      content: string | TSENode;
+    } | null => {
+      const isInsideNode =
+        node.startOffset <= stateStartOffset &&
+        node.endOffset >= stateEndOffset;
+
+      if (!isInsideNode) return null;
+
+      const contents = node.content;
+      // node 내에서 offset 계산을 위해 현재 노드의 시작 오프셋을 기준으로 순회
+      let currentOffset = node.startOffset;
+
+      for (let i = 0; i < contents.length; i++) {
+        const content = contents[i];
+        let contentLength: number;
+
+        if (typeof content === 'string') {
+          contentLength = content.length;
+        } else {
+          // TSENode 일 경우 해당 노드의 범위를 이용
+          contentLength = content.endOffset - content.startOffset;
+        }
+
+        const contentStart = currentOffset;
+        const contentEnd = currentOffset + contentLength;
+
+        // 해당 content가 stateStartOffset와 stateEndOffset를 포함하는지 확인
+        const isInsideContent =
+          contentStart <= stateStartOffset && contentEnd >= stateEndOffset;
+
+        if (isInsideContent) {
+          if (content instanceof TSENode) {
+            // content가 또 다른 TSENode일 경우, 재귀적으로 탐색
+            const found = dfs(content);
+            if (found) return found;
+          } else {
+            // content가 문자열인 경우, 여기서 찾았으므로 반환
+            return { node, contentIndex: i, content };
+          }
+        }
+
+        currentOffset += contentLength;
+      }
+
+      // 현재 node 범위 내에 있으나 하위 content에서 발견하지 못한 경우 null 반환
+      return null;
+    };
+
+    const result = dfs(this.doc);
+
+    if (!result) {
+      throw new Error(
+        '해당 범위에 해당하는 content를 찾을 수 없습니다. 범위를 확인해주세요.'
+      );
+    }
+
     return result;
   }
 

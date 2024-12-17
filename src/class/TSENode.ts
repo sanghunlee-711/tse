@@ -11,7 +11,8 @@ export type TSENodeType =
   | 'h3'
   | 'ul'
   | 'ol'
-  | 'li';
+  | 'li'
+  | 'span';
 
 export type TSENodeContent = TSENode | string;
 const OFFSET_DELIMITER = 1;
