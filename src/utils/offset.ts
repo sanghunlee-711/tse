@@ -81,7 +81,12 @@ export function getCurrentWindowRangeAndNodeFrom(
     stateStartOffset,
     stateEndOffset,
     view.rootElement
-  ).firstChild as Node;
+  );
+  const {
+    node: tseNode,
+    content,
+    contentIndex,
+  } = view.state.getNodeContentFrom(stateStartOffset, stateEndOffset);
 
   const range = document.createRange();
 
@@ -91,5 +96,8 @@ export function getCurrentWindowRangeAndNodeFrom(
     windowEndOffset,
     windowNode,
     range,
+    tseNode,
+    content,
+    contentIndex,
   };
 }

@@ -20,11 +20,19 @@ function updateCarrotPosition(
 
   if (!result) throw new Error('범위를 찾을 수 없습니다.');
 
-  const { selection, windowStartOffset, windowEndOffset, windowNode, range } =
-    result;
+  const {
+    selection,
+    windowStartOffset,
+    windowEndOffset,
+    windowNode,
+    range,
+    contentIndex,
+  } = result;
 
-  range.setStart(windowNode, EventMap['insertText'](windowStartOffset));
-  range.setEnd(windowNode, EventMap['insertText'](windowEndOffset));
+  const node = windowNode.childNodes[contentIndex];
+
+  range.setStart(node, EventMap['insertText'](windowStartOffset));
+  range.setEnd(node, EventMap['insertText'](windowEndOffset));
 
   selection.removeAllRanges();
   selection.addRange(range);
@@ -86,6 +94,7 @@ export class InsertTextPlugin implements EditorPlugin {
       view.dispatch(transaction, this);
     }
   }
+
   afterSyncDOM(transaction: Transaction, view: EditorView) {
     updateCarrotPosition(
       transaction.startOffset || 0,
