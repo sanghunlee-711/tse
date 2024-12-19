@@ -49,12 +49,10 @@ function createInsertTextTransaction(
 ): Transaction {
   const { startOffset, endOffset } = view.selection;
   const node = view.state.getNodeFrom(startOffset, endOffset);
-
   const { content, contentIndex } = view.state.getNodeContentFrom(
     startOffset,
     endOffset
   );
-
   const offsetResult = view.state.getWindowOffsetFrom(
     startOffset,
     endOffset,

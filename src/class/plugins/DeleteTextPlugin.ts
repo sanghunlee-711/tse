@@ -23,11 +23,19 @@ function updateCarrotPosition(
 
   if (!result) throw new Error('범위를 찾을 수 없습니다.');
 
-  const { selection, windowStartOffset, windowEndOffset, windowNode, range } =
-    result;
+  const {
+    selection,
+    windowStartOffset,
+    windowEndOffset,
+    windowNode,
+    range,
+    contentIndex,
+  } = result;
 
-  range.setStart(windowNode, EventMap['deleteText'](windowStartOffset));
-  range.setEnd(windowNode, EventMap['deleteText'](windowEndOffset));
+  const node = windowNode.childNodes[contentIndex];
+
+  range.setStart(node, EventMap['deleteText'](windowStartOffset));
+  range.setEnd(node, EventMap['deleteText'](windowEndOffset));
 
   selection.removeAllRanges();
   selection.addRange(range);
@@ -44,6 +52,10 @@ function createDeleteTextTransaction(
 ): Transaction {
   const { startOffset, endOffset } = view.selection;
   const node = view.state.getNodeFrom(startOffset, endOffset);
+  const { content, contentIndex } = view.state.getNodeContentFrom(
+    startOffset,
+    endOffset
+  );
   const offsetResult = view.state.getWindowOffsetFrom(
     startOffset,
     endOffset,
@@ -55,14 +67,17 @@ function createDeleteTextTransaction(
   const { windowStartOffset, windowEndOffset } = offsetResult;
 
   const transaction = new Transaction(view.state);
-  const currentContent = node.content[0] as string;
 
-  const updatedContent = [
-    currentContent.slice(0, windowStartOffset - 1) +
-      currentContent.slice(windowEndOffset),
-  ];
+  if (typeof content === 'string') {
+    const updatedContent =
+      content.slice(0, windowStartOffset - 1) + content.slice(windowEndOffset);
 
-  node.content = updatedContent;
+    node.content[contentIndex] = updatedContent;
+  } else {
+    // *TODO: 에러처리 필요할 것 같다.
+    throw new Error('문자가 아닌 node가 탐색 되었습니다.');
+  }
+
   transaction.updateNode(node);
 
   return transaction;
