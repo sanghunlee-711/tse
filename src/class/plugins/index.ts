@@ -1,7 +1,7 @@
 import { DeleteTextPlugin } from './DeleteTextPlugin';
 import { InsertTextPlugin } from './InsertTextPlugin';
 import { KeyUpPlugin } from './KeyUpPlugin';
-import { MouseUpPlugin } from './MouseUPPlugin';
+import { MouseUpPlugin } from './MouseUpPlugin';
 
 export const CorePlugins = [
   new InsertTextPlugin(),
