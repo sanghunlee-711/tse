@@ -38,10 +38,10 @@ class EditorView {
   dispatch(transaction: Transaction, triggerPlugin?: EditorPlugin) {
     this.state = this.state.apply(transaction);
     this.state.selection = this.selection;
-
-    this.selection.updateRootNode(this.state.doc);
-    this.selection.updateSelection();
+    this.state.selection.updateRootNode(this.state.doc);
+    this.state.selection.updateSelection();
     this.syncDOM(transaction);
+
     if (triggerPlugin && triggerPlugin.afterSyncDOM) {
       triggerPlugin.afterSyncDOM(transaction, this);
     }

@@ -574,23 +574,97 @@ describe('EditorState > getNodeContentFrom', () => {
       3 // C 뒤편의 offset
     );
 
-    expect(result.content).toEqual(FIRST_PARAGRAPH_TEXT); // Bold DOM 노드가 반환되어야 함
-    expect(result.contentIndex).toEqual(0); // Bold DOM 노드가 반환되어야 함
+    expect(result.content).toEqual(FIRST_PARAGRAPH_TEXT);
+    expect(result.contentIndex).toEqual(0);
 
     const result2 = state.getNodeContentFrom(
       4, //C_ 뒤편의 offset
       4 // C_ 뒤편의 offset
     );
 
-    expect(result2.content).toEqual(FIRST_PARAGRAPH_TEXT); // Bold DOM 노드가 반환되어야 함
-    expect(result2.contentIndex).toEqual(0); // Bold DOM 노드가 반환되어야 함
+    expect(result2.content).toEqual(FIRST_PARAGRAPH_TEXT);
+    expect(result2.contentIndex).toEqual(0);
 
     const result3 = state.getNodeContentFrom(
       10, // B 뒤편의 offset
       10 // B 뒤편의 offset
     );
 
-    expect(result3.content).toEqual(FIRST_PARAGRAPH_LATER_TEXT); // Bold DOM 노드가 반환되어야 함
-    expect(result3.contentIndex).toEqual(2); // Bold DOM 노드가 반환되어야 함
+    expect(result3.content).toEqual(FIRST_PARAGRAPH_LATER_TEXT);
+    expect(result3.contentIndex).toEqual(2);
+
+    const result4 = state.getNodeContentFrom(
+      14, // 두번째 문단 D앞의 offset
+      14 // 두번째 문단 D앞의 offset
+    );
+
+    expect(result4.content).toEqual(SECOND_PARAGRAPH_TEXT);
+    expect(result4.contentIndex).toEqual(0);
+  });
+
+  it('paragraph의 마지막 위치인 경우, 컨텐츠 및 해당 컨텐츠의 인덱스 찾기', () => {
+    /**
+     *  A B C _ B O L D H E L L O
+     * 0 1 2 3 4 5 6 7 8 9 10 11 12 13
+     *  D E F
+     * 14 15 16 17
+     *  G H I
+     * 18 19 20 21
+     */
+    const FIRST_PARAGRAPH_TEXT = 'ABC_',
+      BOLD_TEXT = 'BOLD',
+      FIRST_PARAGRAPH_LATER_TEXT = 'HELLO',
+      SECOND_PARAGRAPH_TEXT = 'DEF',
+      THIRD_PARAGRAPH_TEXT = 'GHI';
+
+    const bold = new TSENode('bold', {}, [BOLD_TEXT]);
+    const paragraph1 = new TSENode('paragraph', {}, [
+      FIRST_PARAGRAPH_TEXT,
+      bold,
+      FIRST_PARAGRAPH_LATER_TEXT,
+    ]);
+    const paragraph2 = new TSENode('paragraph', {}, [SECOND_PARAGRAPH_TEXT]);
+    const paragraph3 = new TSENode('paragraph', {}, [THIRD_PARAGRAPH_TEXT]);
+    const root = new TSENode('doc', {}, [paragraph1, paragraph2, paragraph3]);
+
+    // 가상 DOM 생성
+    const rootElement = document.createElement('div');
+    const p1 = document.createElement('p');
+    const boldElement = document.createElement('b');
+    boldElement.textContent = BOLD_TEXT;
+    p1.append(FIRST_PARAGRAPH_TEXT, boldElement);
+    const p2 = document.createElement('p');
+    p2.textContent = SECOND_PARAGRAPH_TEXT;
+    const p3 = document.createElement('p');
+    p3.textContent = THIRD_PARAGRAPH_TEXT;
+    rootElement.append(p1, p2, p3);
+
+    const state = new EditorState({ schema, doc: root }, selection);
+    root.recalculateOffsets();
+
+    const first = state.getNodeContentFrom(
+      13, //두번째 paragraph 가장 마지막 위치
+      13 // 두번째 paragraph 가장 마지막 위치
+    );
+
+    expect(first.content).toEqual(FIRST_PARAGRAPH_LATER_TEXT);
+    expect(first.contentIndex).toEqual(2);
+
+    // 상태 오프셋을 기반으로 DOM 노드 찾기
+    const second = state.getNodeContentFrom(
+      17, //두번째 paragraph 가장 마지막 위치
+      17 // 두번째 paragraph 가장 마지막 위치
+    );
+
+    expect(second.content).toEqual(SECOND_PARAGRAPH_TEXT);
+    expect(second.contentIndex).toEqual(0);
+
+    const third = state.getNodeContentFrom(
+      21, //세번째 paragraph 가장 마지막 위치
+      21 // 세번째 paragraph 가장 마지막 위치
+    );
+
+    expect(third.content).toEqual(THIRD_PARAGRAPH_TEXT);
+    expect(third.contentIndex).toEqual(0);
   });
 });

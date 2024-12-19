@@ -2,6 +2,7 @@ import TSENode from './TSENode';
 import Transaction from './Transaction';
 import Selection from './Selection';
 import Schema from './Schema';
+import { OFFSET_DELIMITER } from '@src/constants/delimiter';
 
 export interface EditorStateConfig {
   schema: Schema; // schema 속성 추가
@@ -47,7 +48,7 @@ class EditorState {
 
   getNodeFrom(stateStartOffset: number, stateEndOffset: number) {
     this.validateRange(stateStartOffset, stateEndOffset);
-    console.log({ stateStartOffset, stateEndOffset });
+
     const dfs = (node: TSENode): TSENode | null => {
       //base case
       const isInsideNode =
@@ -103,16 +104,17 @@ class EditorState {
       const contents = node.content;
       // node 내에서 offset 계산을 위해 현재 노드의 시작 오프셋을 기준으로 순회
       let currentOffset = node.startOffset;
-
+      let contentLength: number;
       for (let i = 0; i < contents.length; i++) {
         const content = contents[i];
-        let contentLength: number;
 
         if (typeof content === 'string') {
           contentLength = content.length;
         } else {
+          //paragraph인 경우에 해당 할 것이므로 OFFSET_DELIMITER를 추가해준다.
           // TSENode 일 경우 해당 노드의 범위를 이용
-          contentLength = content.endOffset - content.startOffset;
+          contentLength =
+            content.endOffset - content.startOffset + OFFSET_DELIMITER;
         }
 
         const contentStart = currentOffset;
@@ -125,11 +127,14 @@ class EditorState {
         if (isInsideContent) {
           if (content instanceof TSENode) {
             // content가 또 다른 TSENode일 경우, 재귀적으로 탐색
+
             const found = dfs(content);
             if (found) return found;
           } else {
+            const result = { node, contentIndex: i, content };
+
             // content가 문자열인 경우, 여기서 찾았으므로 반환
-            return { node, contentIndex: i, content };
+            return result;
           }
         }
 

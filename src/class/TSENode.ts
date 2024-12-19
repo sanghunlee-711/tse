@@ -106,7 +106,6 @@ class TSENode {
 
     // 루트 노드에서 재귀 시작 (루트 노드에는 OFFSET_DELIMITER 적용 안 함)
     dfs(this, 0, true);
-    // console.log('@@@@', this);
   }
 
   toJSON(): any {

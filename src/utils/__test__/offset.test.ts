@@ -46,7 +46,7 @@ describe('calculateAbsoluteOffsetFromDOM 함수 테스트', () => {
   it('단순 노드의 절대 오프셋을 계산할 수 있어야 한다', () => {
     const root = document.getElementById(ROOT_NODE_NAME);
     const firstParagraph = root?.firstChild as Node;
-    console.log({ firstParagraph: firstParagraph.textContent });
+
     const result = calculateAbsoluteOffsetFromDOM(firstParagraph, 3);
     const expectedOffset = 3;
 
