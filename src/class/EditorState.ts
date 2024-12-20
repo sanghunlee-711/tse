@@ -360,6 +360,110 @@ class EditorState {
     return result;
   }
 
+  /**
+   * @description offset을 통해 동일 레벨의 content 배열을 반환합니다.
+   * @param stateStartOffset
+   * @param stateEndOffset
+   */
+  getSiblingContentFrom(stateStartOffset: number, stateEndOffset: number) {
+    this.validateRange(stateStartOffset, stateEndOffset);
+
+    const dfs = (
+      node: TSENode
+    ): {
+      node: TSENode;
+      contents: Array<string | TSENode>;
+    } | null => {
+      const isInsideNode =
+        node.startOffset <= stateStartOffset &&
+        node.endOffset >= stateEndOffset;
+
+      if (!isInsideNode) return null;
+
+      const contents = node.content;
+      let currentOffset = node.startOffset;
+      let contentLength: number;
+
+      for (let i = 0; i < contents.length; i++) {
+        const content = contents[i];
+
+        if (typeof content === 'string') {
+          contentLength = content.length;
+        } else {
+          contentLength =
+            content.endOffset - content.startOffset + OFFSET_DELIMITER;
+        }
+
+        const contentStart = currentOffset;
+        const contentEnd = currentOffset + contentLength;
+
+        const isInsideContent =
+          contentStart <= stateStartOffset && contentEnd >= stateEndOffset;
+
+        if (isInsideContent) {
+          if (content instanceof TSENode) {
+            const found = dfs(content);
+            if (found) return found;
+          } else {
+            return { node, contents }; // Return the contents of the current node
+          }
+        }
+
+        currentOffset += contentLength;
+      }
+
+      return null;
+    };
+
+    const result = dfs(this.doc);
+
+    if (!result) {
+      throw new Error(
+        '해당 범위에 해당하는 content를 찾을 수 없습니다. 범위를 확인해주세요.'
+      );
+    }
+
+    return result.contents; // Return only the contents array
+  }
+
+  /**
+   * @description 현재 content가 포함된 paragraph Index를 반환한다.
+   * @TLDR; Paragraph안에 Paragraph가 존재할 일은 없다는 가정하에 진행.
+   * @param stateStartOffset
+   * @param stateEndOffset
+   */
+  getParagraphIdxFrom(
+    stateStartOffset: number,
+    stateEndOffset: number
+  ): number {
+    this.validateRange(stateStartOffset, stateEndOffset);
+
+    const traverse = (node: TSENode): number | null => {
+      //base case
+      const paragraphContents = node.content;
+      for (let i = 0; i < paragraphContents.length; i++) {
+        const currContent = paragraphContents[i] as TSENode;
+
+        const isInsideNode =
+          currContent.startOffset <= stateStartOffset &&
+          currContent.endOffset >= stateEndOffset;
+
+        if (isInsideNode) {
+          return i;
+        }
+      }
+      return null;
+    };
+
+    const result = traverse(this.doc);
+
+    if (result === null)
+      throw new Error(
+        'Paragraph Index 찾기에 실패하였습니다. 범위를 확인해주세요'
+      );
+    return result;
+  }
+
   toJSON(): any {
     return {
       schema: this.schema.spec, // 스키마 스펙만 직렬화

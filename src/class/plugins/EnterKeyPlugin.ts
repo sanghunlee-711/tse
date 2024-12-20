@@ -52,6 +52,17 @@ function enterTextTransaction(view: EditorView): Transaction {
     startOffset,
     endOffset
   );
+
+  const siblingContents = view.state.getSiblingContentFrom(
+    startOffset,
+    endOffset
+  );
+
+  const currParagraphIdx = view.state.getParagraphIdxFrom(
+    startOffset,
+    endOffset
+  );
+
   const offsetResult = view.state.getWindowOffsetFrom(
     startOffset,
     endOffset,
@@ -60,13 +71,6 @@ function enterTextTransaction(view: EditorView): Transaction {
   if (!offsetResult) throw new Error('windowOffset범위를 찾지 못했습니다.');
 
   const { windowStartOffset, windowEndOffset } = offsetResult;
-  console.log({
-    content,
-    contentIndex,
-    node,
-    windowStartOffset,
-    windowEndOffset,
-  });
 
   const transaction = new Transaction(view.state);
 
@@ -95,7 +99,6 @@ export class EnterKeyPlugin implements EditorPlugin {
     const e = event as KeyboardEvent;
 
     if (e.key === 'Enter') {
-      console.log('@@@@?ENTER', e, e.key);
       enterTextTransaction(view);
     }
   }
