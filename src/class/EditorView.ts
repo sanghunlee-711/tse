@@ -128,6 +128,7 @@ class EditorView {
   addEventListeners() {
     this.plugins.forEach((plugin) => {
       this.rootElement.addEventListener(plugin.eventType, (e) => {
+        e.preventDefault();
         plugin.on(e as Event, this);
       });
     });

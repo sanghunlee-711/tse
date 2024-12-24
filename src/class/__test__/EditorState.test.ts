@@ -265,6 +265,43 @@ describe('EditorState > getWindowNodeFrom', () => {
 });
 
 describe('EditorState > getWindowOffsetFrom', () => {
+  it('두개의 문단에서 첫번째 문단의 stateOffset이 주어진 경우, 동일한 값을 반환해야 한다.', () => {
+    const FIRST_PARAGRAPH_TEXT = 'ABCBOLD',
+      SECOND_PARAGRAPH_TEXT = 'DEF';
+    /**
+     *  A B C B O L D
+     * 0 1 2 3 4 5 6 7
+     *  D E F
+     * 8 9 10 11
+     */
+
+    const paragraph1 = new TSENode('paragraph', {}, [FIRST_PARAGRAPH_TEXT]);
+    const paragraph2 = new TSENode('paragraph', {}, [SECOND_PARAGRAPH_TEXT]);
+    const root = new TSENode('doc', {}, [paragraph1, paragraph2]);
+
+    // 가상 DOM 생성
+    const rootElement = document.createElement('div');
+    const p1 = document.createElement('p');
+    p1.append(FIRST_PARAGRAPH_TEXT);
+    const p2 = document.createElement('p');
+    p2.textContent = SECOND_PARAGRAPH_TEXT;
+    rootElement.append(p1, p2);
+
+    const state = new EditorState({ schema, doc: root }, selection);
+    root.recalculateOffsets();
+    // 상태 오프셋을 기반으로 DOM 노드 찾기
+    const result = state.getWindowOffsetFrom(
+      4, // BOLD_TEXT의 시작
+      4, // BOLD_TEXT의 끝
+      rootElement
+    );
+
+    expect(result).toEqual({
+      windowStartOffset: 4,
+      windowEndOffset: 4,
+    });
+  });
+
   it('두개의 문단에서 첫번째 문단의 시작 위치의 stateOffset인 경우, 0을 반환해야 한다.', () => {
     const FIRST_PARAGRAPH_TEXT = 'ABCBOLD',
       SECOND_PARAGRAPH_TEXT = 'DEF';

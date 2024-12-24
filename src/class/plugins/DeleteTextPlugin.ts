@@ -51,6 +51,7 @@ function createDeleteTextTransaction(
   view: EditorView
 ): Transaction {
   const { startOffset, endOffset } = view.selection;
+
   const node = view.state.getNodeFrom(startOffset, endOffset);
   const { content, contentIndex } = view.state.getNodeContentFrom(
     startOffset,
