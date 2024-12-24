@@ -3,10 +3,9 @@ import EditorView from '../EditorView';
 import Transaction from '../Transaction';
 import EditorPlugin from './EditorPlugin';
 import { EventMap } from '@src/constants/eventMap';
-import TSENode from '../TSENode';
+import TSENode, { TSENodeContent } from '../TSENode';
 
-//TODO: 문자열에 해당하는 Italic, Bold, Text ETC...는 다음 문단으로 넘어가야함.
-//UL, LI와 같은 리스트의 경우 다음 리스트로 만들어 줘야함.(텍스트에서 치는 경우 다음 문단으로 텍스트 잘라서 넘어가야함.)
+//TODO: UL, LI와 같은 리스트의 경우 다음 리스트로 만들어 줘야함.(텍스트에서 치는 경우 다음 문단으로 텍스트 잘라서 넘어가야함.)
 /**
  * @descriptions 엔터키 클릭 시 에디터의 커서 포인터가 제대로 위치하게 만들기 위한 메서드
  */
@@ -44,7 +43,7 @@ function updateCarrotPosition(
 /**
  * 엔터키를 누른 경우 현재 위치의 다음 컨텐츠 및 siblings들을 문단(paragraph)의 node로 만들어서 현재 다음의 문단으로 넣어줘야한다.
  *
- * @param {string} text - 삽입할 텍스트
+ * @param {EditorView} view - 현재 view
  * @returns {Transaction} 생성된 트랜잭션
  */
 function enterTextTransaction(view: EditorView): Transaction {
@@ -56,25 +55,11 @@ function enterTextTransaction(view: EditorView): Transaction {
   const startOffset =
       selectionStartOffset - 1 > 0 ? selectionStartOffset - 1 : 0,
     endOffset = selectionEndOffset - 1 > 0 ? selectionEndOffset - 1 : 0;
-
-  console.log(
-    '@@@',
-    startOffset,
-    endOffset,
-    view.selection,
-    view.state.selection
-  );
-  const node = view.state.getNodeFrom(startOffset, endOffset);
-  const { content, contentIndex } = view.state.getNodeContentFrom(
+  const { content: stateContent, contentIndex } = view.state.getNodeContentFrom(
     startOffset,
     endOffset
   );
-
-  const siblingContents = view.state.getSiblingContentFrom(
-    startOffset,
-    endOffset
-  );
-
+  const transaction = new Transaction(view.state);
   const currParagraphIdx = view.state.getParagraphIdxFrom(
     startOffset,
     endOffset
@@ -89,46 +74,119 @@ function enterTextTransaction(view: EditorView): Transaction {
 
   const { windowStartOffset, windowEndOffset } = offsetResult;
 
-  const transaction = new Transaction(view.state);
+  const dfs = (
+    root: TSENode,
+    parent: TSENode | null,
+    parentIdx: number | null
+  ): TSENode | null => {
+    const currContent = root.content;
 
-  //1. 현재 노드의 content에서 slice를 쳐서 잘라냄.
-  //2. slice친 컨텐츠를 동일 노드의 분할된 컨텐츠로 만듦;
+    for (let i = 0; i < currContent.length; i++) {
+      const content = currContent[i];
 
-  if (typeof content === 'string') {
-    const currContentPrev = content.slice(0, windowStartOffset);
-    const currContentNext = content.slice(windowEndOffset);
-    const prevSiblingNodes = siblingContents.slice(0, contentIndex);
-    const nextSiblingNodes = siblingContents.slice(contentIndex + 1);
-    const nextLineContent = [currContentNext, ...nextSiblingNodes];
-    console.log({ windowStartOffset, windowEndOffset, startOffset, endOffset });
-    node.content[contentIndex] = currContentPrev;
-    const prevParagraph = view.state.doc.content.slice(0, currParagraphIdx),
-      currentParagraph = view.state.doc.content[currParagraphIdx],
-      newParagraph = new TSENode('paragraph', {}, nextLineContent),
-      nextParagraph = view.state.doc.content.slice(currParagraphIdx + 1);
+      if (content instanceof TSENode) {
+        const result = dfs(content, root, i);
+        if (result) return result;
+      }
 
-    console.log({
-      currParagraphIdx,
-      prevParagraph,
-      currentParagraph,
-      newParagraph,
-      nextParagraph,
-    });
-    view.state.doc.content = [
-      ...prevParagraph,
-      currentParagraph,
-      newParagraph,
-      ...nextParagraph,
-    ];
-    transaction.updateNode(view.state.doc);
+      if (content === stateContent) {
+        /**
+         * @description bold, italic과 같이 paragraph안에 더 깊은 뎁스로 있는 textNode인 경우
+         * TODO: 강조 타입을 커스텀 할 수 있게 외부로 뺄 수 있는 방법을 고려해야한다.
+         */
+        const emphasizedNoeType = ['bold', 'italic'];
+        const listNodeType = ['li', 'ul', 'ol'];
 
-    return transaction;
-  } else {
-    //TSENode인 경우 후처리 필요
-  }
+        const isEmphasizedTextNode =
+          parent?.type === 'paragraph' &&
+          parentIdx !== null &&
+          emphasizedNoeType.includes(root.type);
 
-  transaction.updateNode(node);
+        const isListNode =
+          listNodeType.includes(parent?.type || '') &&
+          parentIdx !== null &&
+          listNodeType.includes(root.type);
 
+        const isRawTextNode =
+          parent?.type === 'doc' &&
+          root.type === 'paragraph' &&
+          parentIdx !== null;
+
+        if (isEmphasizedTextNode) {
+          const prevParagraph = view.state.doc.content.slice(
+              0,
+              currParagraphIdx
+            ),
+            currentParagraph = view.state.doc.content[currParagraphIdx],
+            nextParagraph = view.state.doc.content.slice(currParagraphIdx + 1);
+
+          const prevContent = (content as string).slice(0, windowStartOffset),
+            nextContent = (content as string).slice(windowEndOffset);
+
+          const updatedCurrentParagraph = new TSENode('paragraph', {}, [
+              ...(currentParagraph as TSENode).content.slice(0, parentIdx),
+              new TSENode(root.type, {}, [prevContent]),
+            ]),
+            newParagraph = new TSENode('paragraph', {}, [
+              new TSENode(root.type, {}, [nextContent]),
+              ...(currentParagraph as TSENode).content.slice(parentIdx + 1),
+            ]);
+
+          view.state.doc.content = [
+            ...prevParagraph,
+            updatedCurrentParagraph,
+            newParagraph,
+            ...nextParagraph,
+          ];
+
+          return view.state.doc;
+        } else if (isRawTextNode) {
+          const prevParagraph = view.state.doc.content.slice(
+              0,
+              currParagraphIdx
+            ),
+            currentParagraph = view.state.doc.content[
+              currParagraphIdx
+            ] as TSENode,
+            nextParagraph = view.state.doc.content.slice(currParagraphIdx + 1);
+          const prevContent = (content as string).slice(0, windowStartOffset),
+            nextContent = (content as string).slice(windowEndOffset);
+          const prevContentInCurrentParagraph = currentParagraph.content.slice(
+            0,
+            contentIndex
+          );
+          const nextContentInCurrentParagraph = currentParagraph.content.slice(
+            contentIndex + 1
+          );
+          const updatedParagraph = new TSENode('paragraph', {}, [
+            ...prevContentInCurrentParagraph,
+            prevContent,
+          ]);
+          const newParagraph = new TSENode('paragraph', {}, [
+            nextContent,
+            ...nextContentInCurrentParagraph,
+          ]);
+
+          view.state.doc.content = [
+            ...prevParagraph,
+            updatedParagraph,
+            newParagraph,
+            ...nextParagraph,
+          ];
+          return view.state.doc;
+        } else if (isListNode) {
+          console.log('welcome listNode', 'currentType : ', root.type);
+        }
+        return view.state.doc;
+      }
+    }
+    return null;
+  };
+
+  const result = dfs(view.state.doc, null, null);
+  if (!result) throw new Error('문단 찾지 못한 에러 같습니다.');
+  console.log({ result });
+  transaction.updateNode(result);
   return transaction;
 }
 
@@ -136,9 +194,8 @@ export class EnterKeyPlugin implements EditorPlugin {
   eventType: keyof HTMLElementEventMap = 'keyup';
   on(event: Event, view: EditorView) {
     const e = event as KeyboardEvent;
-    console.log(view.state, view.selection);
+
     if (e.key === 'Enter') {
-      console.log('enter event  count');
       const transaction = enterTextTransaction(view);
       view.dispatch(transaction, this);
     }
