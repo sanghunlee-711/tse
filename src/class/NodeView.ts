@@ -24,6 +24,10 @@ class NodeView {
       element = document.createElement(`b`);
     } else if (this.node.type === 'italic') {
       element = document.createElement(`i`);
+    } else if (this.node.type === 'ul') {
+      element = document.createElement('ul');
+    } else if (this.node.type === 'li') {
+      element = document.createElement('li');
     } else {
       element = document.createElement('div');
     }

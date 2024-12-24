@@ -14,6 +14,7 @@ const schemaSpec = {
     heading: { group: 'block', attrs: { level: 1 } },
   },
 };
+
 const schema = new Schema(schemaSpec);
 const $rootElement = document.getElementById('tse');
 
@@ -31,6 +32,13 @@ if ($rootElement) {
         'Some Text is Start and ',
         new TSENode('bold', {}, ['Bold Text']),
         ' and more text',
+      ]),
+      new TSENode('paragraph', {}, [
+        new TSENode('ul', {}, [
+          new TSENode('li', {}, ['list1']),
+          new TSENode('li', {}, ['list2']),
+          new TSENode('li', {}, ['list3']),
+        ]),
       ]),
     ]
   );
