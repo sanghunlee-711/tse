@@ -3,6 +3,7 @@ import Transaction from './Transaction';
 import Selection from './Selection';
 import Schema from './Schema';
 import { OFFSET_DELIMITER } from '@src/constants/delimiter';
+import { getNodeContentWith } from '@src/utils/offset';
 
 export interface EditorStateConfig {
   schema: Schema; // schema 속성 추가
@@ -87,65 +88,69 @@ class EditorState {
    */
   getNodeContentFrom(stateStartOffset: number, stateEndOffset: number) {
     this.validateRange(stateStartOffset, stateEndOffset);
+    const result = getNodeContentWith(
+      stateStartOffset,
+      stateEndOffset,
+      this.doc
+    );
+    // const dfs = (
+    //   node: TSENode
+    // ): {
+    //   node: TSENode;
+    //   contentIndex: number;
+    //   content: string | TSENode;
+    // } | null => {
+    //   const isInsideNode =
+    //     node.startOffset <= stateStartOffset &&
+    //     node.endOffset >= stateEndOffset;
 
-    const dfs = (
-      node: TSENode
-    ): {
-      node: TSENode;
-      contentIndex: number;
-      content: string | TSENode;
-    } | null => {
-      const isInsideNode =
-        node.startOffset <= stateStartOffset &&
-        node.endOffset >= stateEndOffset;
+    //   if (!isInsideNode) return null;
 
-      if (!isInsideNode) return null;
+    //   const contents = node.content;
+    //   // node 내에서 offset 계산을 위해 현재 노드의 시작 오프셋을 기준으로 순회
+    //   let currentOffset = node.startOffset;
+    //   let contentLength: number;
+    //   for (let i = 0; i < contents.length; i++) {
+    //     const content = contents[i];
 
-      const contents = node.content;
-      // node 내에서 offset 계산을 위해 현재 노드의 시작 오프셋을 기준으로 순회
-      let currentOffset = node.startOffset;
-      let contentLength: number;
-      for (let i = 0; i < contents.length; i++) {
-        const content = contents[i];
+    //     if (typeof content === 'string') {
+    //       contentLength = content.length;
+    //     } else {
+    //       //paragraph인 경우에 해당 할 것이므로 OFFSET_DELIMITER를 추가해준다.
+    //       // TSENode 일 경우 해당 노드의 범위를 이용
+    //       contentLength =
+    //         content.endOffset - content.startOffset + OFFSET_DELIMITER;
+    //     }
 
-        if (typeof content === 'string') {
-          contentLength = content.length;
-        } else {
-          //paragraph인 경우에 해당 할 것이므로 OFFSET_DELIMITER를 추가해준다.
-          // TSENode 일 경우 해당 노드의 범위를 이용
-          contentLength =
-            content.endOffset - content.startOffset + OFFSET_DELIMITER;
-        }
+    //     const contentStart = currentOffset;
+    //     const contentEnd = currentOffset + contentLength;
 
-        const contentStart = currentOffset;
-        const contentEnd = currentOffset + contentLength;
+    //     // 해당 content가 stateStartOffset와 stateEndOffset를 포함하는지 확인
+    //     const isInsideContent =
+    //       contentStart <= stateStartOffset && contentEnd >= stateEndOffset;
 
-        // 해당 content가 stateStartOffset와 stateEndOffset를 포함하는지 확인
-        const isInsideContent =
-          contentStart <= stateStartOffset && contentEnd >= stateEndOffset;
+    //     if (isInsideContent) {
+    //       if (content instanceof TSENode) {
+    //         // content가 또 다른 TSENode일 경우, 재귀적으로 탐색
 
-        if (isInsideContent) {
-          if (content instanceof TSENode) {
-            // content가 또 다른 TSENode일 경우, 재귀적으로 탐색
+    //         const found = dfs(content);
+    //         if (found) return found;
+    //       } else {
+    //         const result = { node, contentIndex: i, content };
 
-            const found = dfs(content);
-            if (found) return found;
-          } else {
-            const result = { node, contentIndex: i, content };
+    //         // content가 문자열인 경우, 여기서 찾았으므로 반환
+    //         return result;
+    //       }
+    //     }
 
-            // content가 문자열인 경우, 여기서 찾았으므로 반환
-            return result;
-          }
-        }
+    //     currentOffset += contentLength;
+    //   }
 
-        currentOffset += contentLength;
-      }
+    //   // 현재 node 범위 내에 있으나 하위 content에서 발견하지 못한 경우 null 반환
+    //   return null;
+    // };
 
-      // 현재 node 범위 내에 있으나 하위 content에서 발견하지 못한 경우 null 반환
-      return null;
-    };
-
-    const result = dfs(this.doc);
+    // const result = dfs(this.doc);
 
     if (!result) {
       throw new Error(
