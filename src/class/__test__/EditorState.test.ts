@@ -33,7 +33,7 @@ const schema = new Schema(schemaSpec);
 describe('EditorState > getWindowNodeFrom', () => {
   it('중첩된 Bold 노드와 여러 paragraph의 DOM 매핑 테스트', () => {
     const BOLD_TEXT = 'BOLD',
-      FIRST_PARAGRAPH_TEXT = 'ABC ',
+      FIRST_PARAGRAPH_TEXT = 'ABC_',
       SECOND_PARAGRAPH_TEXT = 'DEF';
 
     const bold = new TSENode('bold', {}, [BOLD_TEXT]);
@@ -67,11 +67,11 @@ describe('EditorState > getWindowNodeFrom', () => {
   });
   it('두개의 문단에서 stateOffset마지막 위치에서 DOM노드 가져오는지 테스트', () => {
     const BOLD_TEXT = 'BOLD',
-      FIRST_PARAGRAPH_TEXT = 'ABC ',
+      FIRST_PARAGRAPH_TEXT = 'ABC_',
       SECOND_PARAGRAPH_TEXT = 'DEF';
     /**
-     *  A B C B O L D
-     * 0 1 2 3 4 5 6 7
+     *  A B C _ B O L D
+     * 0 1 2 3 4 5 6 7 8
      *  D E F
      * 8 9 10 11
      */
@@ -97,12 +97,52 @@ describe('EditorState > getWindowNodeFrom', () => {
     root.recalculateOffsets();
     // 상태 오프셋을 기반으로 DOM 노드 찾기
     const result = state.getWindowNodeFrom(
-      7, // BOLD_TEXT의 시작
-      7, // BOLD_TEXT의 끝
+      8, // BOLD_TEXT의 시작
+      8, // BOLD_TEXT의 끝
       rootElement
     );
 
     expect(result.textContent).toEqual(boldElement.textContent); // Bold DOM 노드가 반환되어야 함
+  });
+
+  it('문단내에서 자식 TSENode앞의 위치에서 텍스트 DOM노드 가져오는지 테스트', () => {
+    const BOLD_TEXT = 'BOLD',
+      FIRST_PARAGRAPH_TEXT = 'ABC_',
+      SECOND_PARAGRAPH_TEXT = 'DEF';
+    /**
+     *  A B C _ B O L D
+     * 0 1 2 3 4 5 6 7 8
+     *  D E F
+     * 8 9 10 11
+     */
+    const bold = new TSENode('bold', {}, [BOLD_TEXT]);
+    const paragraph1 = new TSENode('paragraph', {}, [
+      FIRST_PARAGRAPH_TEXT,
+      bold,
+    ]);
+    const paragraph2 = new TSENode('paragraph', {}, [SECOND_PARAGRAPH_TEXT]);
+    const root = new TSENode('doc', {}, [paragraph1, paragraph2]);
+
+    // 가상 DOM 생성
+    const rootElement = document.createElement('div');
+    const p1 = document.createElement('p');
+    const boldElement = document.createElement('b');
+    boldElement.textContent = BOLD_TEXT;
+    p1.append(FIRST_PARAGRAPH_TEXT, boldElement);
+    const p2 = document.createElement('p');
+    p2.textContent = SECOND_PARAGRAPH_TEXT;
+    rootElement.append(p1, p2);
+
+    const state = new EditorState({ schema, doc: root }, selection);
+    root.recalculateOffsets();
+    // 상태 오프셋을 기반으로 DOM 노드 찾기
+    const result = state.getWindowNodeFrom(
+      4, // BOLD_TEXT의 시작
+      4, // BOLD_TEXT의 시작
+      rootElement
+    );
+
+    expect(result.textContent).toEqual(FIRST_PARAGRAPH_TEXT); //TextNode의 마지막이자 Bold노드의 첫번째 이므로 TextNode가 반환되어야 함.
   });
 
   it('두개의 문단에서 stateOffset시작 위치에서 DOM노드 가져오는지 테스트', () => {
@@ -137,8 +177,8 @@ describe('EditorState > getWindowNodeFrom', () => {
     root.recalculateOffsets();
     // 상태 오프셋을 기반으로 DOM 노드 찾기
     const result = state.getWindowNodeFrom(
-      8, // BOLD_TEXT의 시작
-      8, // BOLD_TEXT의 끝
+      8, // 두번 째 문단 첫번째 문자의 시작
+      8, // 두번 째 문단 첫번째 문자의 시작
       rootElement
     );
 
@@ -620,7 +660,7 @@ describe('EditorState > getNodeContentFrom', () => {
     );
 
     expect(result2.content).toEqual(FIRST_PARAGRAPH_TEXT);
-    expect(result2.contentIndex).toEqual(0);
+    expect(result2.contentIndex).toEqual(0); //BOLD노드 자체의 인덱스를 받아오게 되므로 0이어야 함
 
     const result3 = state.getNodeContentFrom(
       10, // B 뒤편의 offset

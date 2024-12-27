@@ -34,7 +34,7 @@ function updateCarrotPosition(
   } = result;
 
   const node = windowNode.childNodes[contentIndex];
-
+  console.log('in Range!!!', node.textContent);
   range.setStart(node, EventMap['deleteText'](windowStartOffset));
   range.setEnd(node, EventMap['deleteText'](windowEndOffset));
 
@@ -129,15 +129,7 @@ function createDeleteTextTransaction(view: EditorView): Transaction {
               currParagraphIdx
             ] as TSENode,
             nextParagraph = view.state.doc.content.slice(currParagraphIdx + 1);
-          console.log({
-            root,
-            prevParagraph,
-            rightBeforeParagraph,
-            currentParagraph,
-            nextParagraph,
-            currParagraphIdx,
-            startOffset,
-          });
+
           /**
            * case1) emphasizedNode의 startOffset보다 큰 값의 windowStartOffset을 가진 경우, 그냥 지우게 둠.
            * case2) emphasizedNode의 startOffset과 동일한 windowStartOffset을 가진 경우 현재 paragraph의 bold이전의 컨텐츠 인덱스로 노드를 이동시켜 삭제 처리 해줌.
@@ -147,7 +139,20 @@ function createDeleteTextTransaction(view: EditorView): Transaction {
           const isInRange =
             root.startOffset < startOffset && typeof content === 'string';
           const isStartInEmphasizedNode =
-            root.startOffset < startOffset && contentIndex !== 0;
+            root.startOffset === startOffset &&
+            currentParagraph.startOffset === startOffset;
+
+          console.log({
+            root,
+            prevParagraph,
+            rightBeforeParagraph,
+            currentParagraph,
+            nextParagraph,
+            currParagraphIdx,
+            startOffset,
+            isStartInEmphasizedNode,
+          });
+
           if (isInRange) {
             const updatedContent =
               content.slice(0, windowStartOffset - 1) +
@@ -157,8 +162,27 @@ function createDeleteTextTransaction(view: EditorView): Transaction {
           }
 
           if (isStartInEmphasizedNode) {
-            const prevNode = root.content[contentIndex - 1];
-            console.log('@isStartInEmphasizedNode', { prevNode });
+            const prevParagraphLastNode =
+              rightBeforeParagraph.content[
+                rightBeforeParagraph.content.length - 1
+              ];
+            if (prevParagraphLastNode instanceof TSENode) {
+              const isSameNodeType = prevParagraphLastNode.type === root.type;
+              if (isSameNodeType) {
+                // 같은 경우 prevParagraphLastNode에 현재 컨텐츠 붙이고 현재 paragraph뒤 부분 모두 push
+                prevParagraphLastNode.content;
+              } else {
+                //다른 경우 그냥 push
+              }
+            } else if (typeof prevParagraphLastNode === 'string') {
+              if (typeof root.content[0] === 'string') {
+              }
+
+              console.log('@isStartInEmphasizedNode', {
+                prevParagraphLastNode,
+                root,
+              });
+            }
 
             // if (typeof prevNode === 'string') {
             //   const updatedContent =

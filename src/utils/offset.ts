@@ -77,12 +77,12 @@ export function getCurrentWindowRangeAndNodeFrom(
 
   const { windowStartOffset, windowEndOffset } = offsetResult;
 
-  // TODO : getWindowNodeFrom는 Text를 가진 하위 노드인 경우 그 텍스트를 가진 상위 노드를 반환해주므로 firstChild를 활용
   const windowNode = view.state.getWindowNodeFrom(
     stateStartOffset,
     stateEndOffset,
     view.rootElement
   );
+
   const {
     node: tseNode,
     content,
@@ -139,7 +139,7 @@ export function getNodeContentWith(
       if (typeof content === 'string') {
         contentLength = content.length;
       } else {
-        //paragraph인 경우에 해당 할 것이므로 OFFSET_DELIMITER를 추가해준다.
+        // paragraph인 경우에 해당 할 것이므로 OFFSET_DELIMITER를 추가해준다.
         // TSENode 일 경우 해당 노드의 범위를 이용
         contentLength =
           content.endOffset - content.startOffset + OFFSET_DELIMITER;
