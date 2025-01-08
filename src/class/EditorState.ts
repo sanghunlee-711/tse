@@ -3,7 +3,7 @@ import Transaction from './Transaction';
 import Selection from './Selection';
 import Schema from './Schema';
 import { OFFSET_DELIMITER } from '@src/constants/delimiter';
-import { getNodeContentWith } from '@src/utils/offset';
+import { getAllNodeContentsWithin } from '@src/utils/offset';
 
 export interface EditorStateConfig {
   schema: Schema; // schema 속성 추가
@@ -54,7 +54,7 @@ class EditorState {
    */
   getNodeContentFrom(stateStartOffset: number, stateEndOffset: number) {
     this.validateRange(stateStartOffset, stateEndOffset);
-    const result = getNodeContentWith(
+    const result = getAllNodeContentsWithin(
       stateStartOffset,
       stateEndOffset,
       this.doc

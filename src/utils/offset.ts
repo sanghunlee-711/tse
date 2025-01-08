@@ -83,11 +83,10 @@ export function getCurrentWindowRangeAndNodeFrom(
     view.rootElement
   );
 
-  const {
-    node: tseNode,
-    content,
-    contentIndex,
-  } = view.state.getNodeContentFrom(stateStartOffset, stateEndOffset);
+  const contents = view.state.getNodeContentFrom(
+    stateStartOffset,
+    stateEndOffset
+  );
 
   const range = document.createRange();
 
@@ -97,50 +96,42 @@ export function getCurrentWindowRangeAndNodeFrom(
     windowEndOffset,
     windowNode,
     range,
-    tseNode,
-    content,
-    contentIndex,
+    contents,
   };
 }
 
 /**
- * @description offset을 통해 node의 content와 해당 content의 Index를 반환 합니다.
+ * @description offset을 통해 node의 content 들과 해당 content의 Index들을 반환 합니다.
  * @param stateStartOffset
  * @param stateEndOffset
  */
-export function getNodeContentWith(
+export function getAllNodeContentsWithin(
   stateStartOffset: number,
   stateEndOffset: number,
   root: TSENode
-): {
-  node: TSENode;
-  contentIndex: number;
-  content: string | TSENode;
-} {
-  const dfs = (
-    node: TSENode
-  ): {
+): Array<{ node: TSENode; contentIndex: number; content: string | TSENode }> {
+  const results: Array<{
     node: TSENode;
     contentIndex: number;
     content: string | TSENode;
-  } | null => {
-    const isInsideNode =
-      node.startOffset <= stateStartOffset && node.endOffset >= stateEndOffset;
+  }> = [];
 
-    if (!isInsideNode) return null;
+  const dfs = (node: TSENode) => {
+    const isInsideNode =
+      node.startOffset <= stateEndOffset && node.endOffset >= stateStartOffset;
+
+    if (!isInsideNode) return;
 
     const contents = node.content;
-    // node 내에서 offset 계산을 위해 현재 노드의 시작 오프셋을 기준으로 순회
     let currentOffset = node.startOffset;
     let contentLength: number;
+
     for (let i = 0; i < contents.length; i++) {
       const content = contents[i];
 
       if (typeof content === 'string') {
         contentLength = content.length;
       } else {
-        // paragraph인 경우에 해당 할 것이므로 OFFSET_DELIMITER를 추가해준다.
-        // TSENode 일 경우 해당 노드의 범위를 이용
         contentLength =
           content.endOffset - content.startOffset + OFFSET_DELIMITER;
       }
@@ -148,38 +139,29 @@ export function getNodeContentWith(
       const contentStart = currentOffset;
       const contentEnd = currentOffset + contentLength;
 
-      // 해당 content가 stateStartOffset와 stateEndOffset를 포함하는지 확인
-      const isInsideContent =
-        contentStart <= stateStartOffset && contentEnd >= stateEndOffset;
+      const isOverlapping = !(
+        contentEnd < stateStartOffset || contentStart > stateEndOffset
+      );
 
-      if (isInsideContent) {
+      if (isOverlapping) {
+        results.push({ node, contentIndex: i, content });
+
         if (content instanceof TSENode) {
-          // content가 또 다른 TSENode일 경우, 재귀적으로 탐색
-
-          const found = dfs(content);
-          if (found) return found;
-        } else {
-          const result = { node, contentIndex: i, content };
-
-          // content가 문자열인 경우, 여기서 찾았으므로 반환
-          return result;
+          dfs(content);
         }
       }
 
       currentOffset += contentLength;
     }
-
-    // 현재 node 범위 내에 있으나 하위 content에서 발견하지 못한 경우 null 반환
-    return null;
   };
 
-  const result = dfs(root);
+  dfs(root);
 
-  if (!result) {
+  if (results.length === 0) {
     throw new Error(
       '해당 범위에 해당하는 content를 찾을 수 없습니다. 범위를 확인해주세요.'
     );
   }
 
-  return result;
+  return results;
 }
