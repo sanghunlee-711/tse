@@ -1,4 +1,7 @@
-import { calculateAbsoluteOffsetFromDOM } from '@src/utils/offset';
+import {
+  calculateAbsoluteOffsetFromDOM,
+  getNodeContentWith,
+} from '@src/utils/offset';
 import TSENode from './TSENode';
 
 class Selection {
@@ -30,7 +33,14 @@ class Selection {
       range.endOffset
     );
 
-    this.matchedNode = this.findNodeByOffset(this.rootNode, this.startOffset);
+    const result = getNodeContentWith(
+      this.startOffset,
+      this.endOffset,
+      this.rootNode
+    );
+    if (!result)
+      throw new Error('Selection을 통해 matchedNode찾기에 실패하였습니다.');
+    this.matchedNode = result.node;
 
     //아래는 테스트를 위한 섹션
     const output = document.getElementById('output');
@@ -48,29 +58,6 @@ class Selection {
         output.textContent = `선택 범위: ${this.startOffset} ~ ${this.endOffset}, 노드 내용: "${nodeContent}", 노드 범위: "${this.matchedNode?.startOffset} ~ ${this.matchedNode?.endOffset}"`;
       }
     }
-  }
-
-  /**
-   * TSENode와 offset을 통해 TSENode를 찾아냅니다.
-   * @param {TSENode} node - TSENode (루트 TSENode)
-   * @param {number} offset - 노드 내부의 상대 오프셋
-   * @returns {TSENode} TSENode
-   */
-  findNodeByOffset(node: TSENode | string, offset: number): TSENode | null {
-    if (typeof node === 'string') return null;
-    if (offset >= node.startOffset && offset <= node.endOffset) {
-      if (typeof node.content === 'string') {
-        return node;
-      }
-      if (Array.isArray(node.content)) {
-        for (const child of node.content) {
-          const found = this.findNodeByOffset(child, offset);
-          if (found) return found;
-        }
-      }
-      return node;
-    }
-    return null;
   }
 }
 

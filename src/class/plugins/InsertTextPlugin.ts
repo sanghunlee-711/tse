@@ -28,9 +28,9 @@ function updateCarrotPosition(
     range,
     contentIndex,
   } = result;
-
-  const node = windowNode.childNodes[contentIndex];
-
+  console.log(windowNode, contentIndex);
+  const node = windowNode;
+  console.log(node);
   range.setStart(node, EventMap['insertText'](windowStartOffset));
   range.setEnd(node, EventMap['insertText'](windowEndOffset));
 
@@ -48,11 +48,11 @@ function createInsertTextTransaction(
   view: EditorView
 ): Transaction {
   const { startOffset, endOffset } = view.selection;
-  const node = view.state.getNodeFrom(startOffset, endOffset);
-  const { content, contentIndex } = view.state.getNodeContentFrom(
+  const { content, contentIndex, node } = view.state.getNodeContentFrom(
     startOffset,
     endOffset
   );
+
   const offsetResult = view.state.getWindowOffsetFrom(
     startOffset,
     endOffset,
@@ -65,6 +65,7 @@ function createInsertTextTransaction(
 
   const transaction = new Transaction(view.state);
 
+  console.log({ content, contentIndex, node });
   if (typeof content === 'string') {
     const updatedContent =
       content.slice(0, windowStartOffset) +
@@ -77,7 +78,7 @@ function createInsertTextTransaction(
     throw new Error('문자가 아닌 node가 탐색 되었습니다.');
   }
 
-  transaction.updateNode(node);
+  // transaction.updateNode(node);
 
   return transaction;
 }
